@@ -23,6 +23,8 @@
   const rememberInput = document.getElementById("remember-input");
   const formStatus = document.getElementById("form-status");
   const saveButton = document.getElementById("save-details");
+  const signaturePad = document.getElementById("signature-pad");
+  const signatureStatus = document.getElementById("signature-status");
   const logoTransparencyInput = document.getElementById("logo-transparency-input");
   const logoColourInput = document.getElementById("logo-colour-input");
   const logoToleranceInput = document.getElementById("logo-tolerance-input");
@@ -53,6 +55,7 @@
     code: null,
     logo: null,
     bottomLogo: null,
+    signature: null,
     logoSource: null,
     logoTransparency: { enabled: false, colour: "#000000", tolerance: 24 }
   };
@@ -68,6 +71,13 @@
   let logoLoading = false;
   let logoError = false;
   let editorVersion = 0;
+  let pendingSignature = null;
+  let signatureContext = null;
+  let signaturePointer = null;
+  let signaturePoint = null;
+  let signatureVersion = 0;
+  let signatureLoading = false;
+  let signatureError = false;
   const imageVersions = Object.fromEntries(imageKinds.map((kind) => [kind, 0]));
   const imageBusy = Object.fromEntries(imageKinds.map((kind) => [kind, false]));
   const permittedSensors = new Set();
@@ -134,7 +144,7 @@
     if (!value || typeof value.name !== "string" || typeof value.birthdate !== "string") return false;
     if (!textFields.every((field) => validText(value[field.key], field.limit)) || !validRefreshed(value.refreshed)) return false;
     if (!imageKinds.every((kind) => validImage(value[kind]))) return false;
-    if (!validImage(value.logoSource) || !validLogoTransparency(value.logoTransparency)) return false;
+    if (!validImage(value.signature) || !validImage(value.logoSource) || !validLogoTransparency(value.logoTransparency)) return false;
     return validCalendarDate(value.birthdate, maxDate) && validCalendarDate(value.expiry, "9999-12-31");
   }
 
@@ -173,6 +183,11 @@
     secondaryPortrait.hidden = !details.photo;
     if (details.photo) secondaryPortrait.src = details.photo;
     else secondaryPortrait.removeAttribute("src");
+    const signatureImage = document.getElementById("signature-image");
+    signatureImage.hidden = !details.signature;
+    document.getElementById("signature-placeholder").hidden = Boolean(details.signature);
+    if (details.signature) signatureImage.src = details.signature;
+    else signatureImage.removeAttribute("src");
   }
 
   function renderImageEditor(kind) {
@@ -183,7 +198,7 @@
     document.getElementById(`remove-${id}`).hidden = !value;
     if (value) preview.src = value;
     else preview.removeAttribute("src");
-    saveButton.disabled = imageKinds.some((kind) => imageBusy[kind]) || logoError;
+    updateSaveButton();
     logoTransparencyInput.disabled = logoLoading;
     logoColourInput.disabled = logoLoading || !logoTransparencyInput.checked;
     logoToleranceInput.disabled = logoLoading || !logoTransparencyInput.checked;
@@ -226,7 +241,136 @@
     refreshedInput.setCustomValidity("");
     rememberInput.checked = remembered;
     resetImageEditor();
+    void fillSignatureEditor();
   }
+
+  function updateSaveButton() {
+    saveButton.disabled = imageKinds.some((kind) => imageBusy[kind]) || logoError || signatureLoading || signatureError || signaturePointer !== null;
+  }
+
+  function cancelSignatureStroke() {
+    const pointer = signaturePointer;
+    signaturePointer = null;
+    signaturePoint = null;
+    if (pointer !== null && signaturePad.hasPointerCapture(pointer)) signaturePad.releasePointerCapture(pointer);
+  }
+
+  async function fillSignatureEditor() {
+    const version = ++signatureVersion;
+    cancelSignatureStroke();
+    pendingSignature = details.signature;
+    signatureLoading = false;
+    signatureError = false;
+    signatureStatus.textContent = "";
+    signatureContext = signaturePad.getContext("2d");
+    signaturePad.setAttribute("aria-disabled", String(!signatureContext));
+    if (!signatureContext) {
+      console.warn("Signature drawing is unavailable: no canvas context.");
+      signatureStatus.textContent = "Signature drawing is unavailable in this browser. Other details can still be saved.";
+      updateSaveButton();
+      return;
+    }
+    signatureContext.clearRect(0, 0, signaturePad.width, signaturePad.height);
+    signatureContext.strokeStyle = "#172015";
+    signatureContext.fillStyle = "#172015";
+    signatureContext.lineWidth = 4;
+    signatureContext.lineCap = "round";
+    signatureContext.lineJoin = "round";
+    if (!pendingSignature) {
+      updateSaveButton();
+      return;
+    }
+    signatureLoading = true;
+    signatureStatus.textContent = "Loading your saved signature...";
+    updateSaveButton();
+    try {
+      const image = new Image();
+      image.src = pendingSignature;
+      await image.decode();
+      if (version !== signatureVersion) return;
+      signatureContext.drawImage(image, 0, 0, signaturePad.width, signaturePad.height);
+      signatureStatus.textContent = "Draw to add strokes, or clear and start again.";
+    } catch (error) {
+      if (version !== signatureVersion) return;
+      console.warn("Could not load the signature for editing.", error);
+      signatureError = true;
+      signatureStatus.textContent = "The saved signature could not be opened. Clear it and draw again before saving.";
+    } finally {
+      if (version === signatureVersion) {
+        signatureLoading = false;
+        updateSaveButton();
+      }
+    }
+  }
+
+  function signatureCoordinates(event) {
+    const rect = signaturePad.getBoundingClientRect();
+    if (!Number.isFinite(event.clientX) || !Number.isFinite(event.clientY) || rect.width === 0 || rect.height === 0) return null;
+    return {
+      x: Math.max(0, Math.min(signaturePad.width, (event.clientX - rect.left) * signaturePad.width / rect.width)),
+      y: Math.max(0, Math.min(signaturePad.height, (event.clientY - rect.top) * signaturePad.height / rect.height))
+    };
+  }
+
+  signaturePad.addEventListener("pointerdown", (event) => {
+    if (!dialog.open || !signatureContext || signatureLoading || signatureError || signaturePointer !== null || event.button !== 0 || event.isPrimary === false) return;
+    const point = signatureCoordinates(event);
+    if (!point) return;
+    event.preventDefault();
+    signaturePointer = event.pointerId;
+    signaturePoint = point;
+    signaturePad.setPointerCapture(event.pointerId);
+    signatureContext.beginPath();
+    signatureContext.arc(point.x, point.y, signatureContext.lineWidth / 2, 0, Math.PI * 2);
+    signatureContext.fill();
+    signatureStatus.textContent = "Drawing...";
+    updateSaveButton();
+  });
+
+  function drawSignatureStroke(event) {
+    if (event.pointerId !== signaturePointer) return;
+    const samples = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [];
+    for (const sample of samples.length ? samples : [event]) {
+      const point = signatureCoordinates(sample);
+      if (!point) continue;
+      signatureContext.beginPath();
+      signatureContext.moveTo(signaturePoint.x, signaturePoint.y);
+      signatureContext.lineTo(point.x, point.y);
+      signatureContext.stroke();
+      signaturePoint = point;
+    }
+  }
+  signaturePad.addEventListener("pointermove", drawSignatureStroke);
+
+  function finishSignatureStroke(event) {
+    if (signaturePointer === null || event.pointerId !== signaturePointer) return;
+    if (event.type === "pointerup") drawSignatureStroke(event);
+    cancelSignatureStroke();
+    try {
+      const value = signaturePad.toDataURL("image/png");
+      if (!validImage(value)) throw new Error("The signature is too large to save. Clear it and try a simpler drawing.");
+      pendingSignature = value;
+      signatureStatus.textContent = "Ready. Save changes to apply your signature.";
+    } catch (error) {
+      console.warn("Could not prepare the drawn signature.", error);
+      signatureError = true;
+      signatureStatus.textContent = "The signature could not be prepared. Clear it and draw again before saving.";
+    }
+    updateSaveButton();
+  }
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    signaturePad.addEventListener(type, finishSignatureStroke);
+  }
+  document.getElementById("clear-signature").addEventListener("click", () => {
+    signatureVersion += 1;
+    cancelSignatureStroke();
+    signatureContext?.clearRect(0, 0, signaturePad.width, signaturePad.height);
+    pendingSignature = null;
+    signatureLoading = false;
+    signatureError = false;
+    signatureStatus.textContent = "Signature cleared. Save changes to apply.";
+    updateSaveButton();
+  });
 
   async function prepareImage(file, kind) {
     const source = await new Promise((resolve, reject) => {
@@ -407,6 +551,7 @@
         expiry: restored.expiry,
         refreshed: restored.refreshed,
         ...Object.fromEntries(imageKinds.map((kind) => [kind, restored[kind] ?? null])),
+        signature: restored.signature ?? null,
         logoSource: restored.logoSource ?? null,
         logoTransparency: { ...restored.logoTransparency }
       };
@@ -425,6 +570,10 @@
   document.getElementById("close-dialog").addEventListener("click", () => dialog.close());
   dialog.addEventListener("close", () => {
     editorVersion += 1;
+    signatureVersion += 1;
+    cancelSignatureStroke();
+    signatureLoading = false;
+    signatureError = false;
     for (const kind of imageKinds) imageBusy[kind] = false;
     logoLoading = false;
     logoError = false;
@@ -442,6 +591,14 @@
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
+    if (signatureLoading || signaturePointer !== null) {
+      formStatus.textContent = "Wait for the signature to load or finish drawing before saving.";
+      return;
+    }
+    if (signatureError) {
+      formStatus.textContent = "The signature could not be prepared. Clear it and draw again before saving.";
+      return;
+    }
     if (imageKinds.some((kind) => imageBusy[kind])) {
       formStatus.textContent = "Wait for the selected images to finish preparing.";
       return;
@@ -456,6 +613,7 @@
       expiry: expiryInput.value,
       refreshed: refreshedInput.value,
       ...pendingImages,
+      signature: pendingSignature,
       logoSource: pendingLogoSource === pendingImages.logo ? null : pendingLogoSource,
       logoTransparency: { ...pendingLogoTransparency }
     };

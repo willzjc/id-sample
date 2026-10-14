@@ -25,6 +25,10 @@ engines avoid indexing the page; it is not a password or privacy boundary.
   from your phone's native photo-library/file chooser. Images are not uploaded.
   Uploaded portraits have no visible photo badge; the placeholder keeps its
   **ILLUSTRATION** badge.
+- Draw a signature in the editor using a mouse, trackpad, touch or stylus.
+  **Clear signature** starts over or removes it when saved. Closing without
+  saving discards signature edits. **Remember on this device** retains it;
+  **Reset details** removes it along with the other saved details.
 - PNG/WebP logo transparency is preserved. For an opaque logo, enable
   **Remove background colour**, choose a colour, and adjust **Tolerance**.
   Zero matches the exact colour; larger values include nearby shades.
@@ -68,9 +72,14 @@ are 200/738 of the card width, 200:245 aspect ratio, 30/738 left offset and
 32/738 spacing below the class tiles. CSS scales these proportions with the card.
 The bottom banner uses `#fef363` (RGB 254, 243, 99), sampled from the supplied
 reference screenshot, independently of the other UI accent colours.
+An opposing diagonal strip behind it uses the screenshot's faded yellow
+`#716c34` (RGB 113, 108, 52), producing the crossed-band edge.
 The footer is at least 44.85% of the card width
 high, with an editable Card Number and independent, transparency-preserving
-bottom logo. No official logo, address or signature is included.
+bottom logo. The white signature slot is 409/738 of the card width with a
+409:103 aspect ratio; adding it preserves the lower section's overall spacing.
+Signatures are local transparent PNG drawings, not official verification.
+No official logo, address or prefilled signature is included.
 Do not use an official document's verification code in the personal-code slot.
 
 ### iPhone motion troubleshooting

@@ -8,8 +8,8 @@
   <meta name="theme-color" content="#111111">
   <title>Template License | Interactive prototype</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=banner-yellow-4">
-  <script src="./app.js?v=photo-badge-4" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=signature-ribbons-5">
+  <script src="./app.js?v=signature-pad-5" defer></script>
 </head>
 <body>
   <header class="card-header">
@@ -75,8 +75,13 @@
           <div class="secondary-portrait" aria-hidden="true">
             <img id="secondary-portrait-image" alt="" hidden>
           </div>
+          <div class="signature-panel">
+            <span id="signature-placeholder">Signature</span>
+            <img id="signature-image" alt="Your drawn signature" hidden>
+          </div>
           <!-- <footer class="card-footer"><span class="footer-dot" aria-hidden="true"></span> Not valid identification <span aria-hidden="true">/</span> Not official verification</footer> -->
         </div>
+        <div class="card-number-banners">
         <section class="card-number-panel" aria-label="Card number and custom logo">
           <dl>
             <dt id="display-card-number-label">Card Number</dt>
@@ -87,6 +92,7 @@
             <img id="bottom-logo-image" alt="Custom bottom logo" hidden>
           </div>
         </section>
+        </div>
       </div>
     </article>
     <!-- <aside class="card-help" aria-label="Card controls">
@@ -183,6 +189,13 @@
         <p class="field-help" id="bottom-logo-help">Choose your own or an authorized bottom logo from your phone. Independent of the top logo. PNG and WebP transparency is preserved. Up to 5 MB; nothing is uploaded.</p>
         <p id="bottom-logo-status" class="image-status" role="status"></p>
       </div>
+      <fieldset class="signature-field">
+        <legend>Signature</legend>
+        <p id="signature-help" class="field-help">Draw below using your mouse, trackpad, finger or stylus. Changes apply only when saved. Your signature stays in this browser and is never uploaded.</p>
+        <canvas id="signature-pad" width="818" height="206" role="img" aria-label="Signature drawing area" aria-describedby="signature-help signature-status"></canvas>
+        <button id="clear-signature" class="button secondary" type="button">Clear signature</button>
+        <p id="signature-status" class="image-status" role="status"></p>
+      </fieldset>
       <label class="checkbox-label" for="remember-input"><input id="remember-input" type="checkbox"> Remember on this device</label>
       <p class="field-help">Leave unchecked on a shared phone. Remembered details and images are stored in this browser, not in the website.</p>
       <p id="form-status" class="form-status" role="status"></p>

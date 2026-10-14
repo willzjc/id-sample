@@ -99,8 +99,13 @@ dd { margin: 0; font-weight: 700; font-size: clamp(23px, 6.8cqw, 29px); line-hei
 .detail-tiles dl { min-width: 0; padding: 24px 16px; background: #25272beb; }
 .detail-tiles dt { font-size: 16px; }
 .detail-tiles dd { font-size: 20px; overflow-wrap: anywhere; }
-.secondary-portrait { width: calc(20000cqw / 738); aspect-ratio: 200 / 245; margin: calc(3200cqw / 738) 0 calc(30700cqw / 738) calc(3000cqw / 738 - 4.2cqw); pointer-events: none; }
+.secondary-portrait { width: calc(20000cqw / 738); aspect-ratio: 200 / 245; margin: calc(3200cqw / 738) 0 calc(7600cqw / 738) calc(3000cqw / 738 - 4.2cqw); pointer-events: none; }
 .secondary-portrait img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: .24; filter: grayscale(1) brightness(.85); }
+.signature-panel { display: grid; place-items: center; width: calc(40900cqw / 738); aspect-ratio: 409 / 103; margin: 0 auto calc(12800cqw / 738); background: #fff; color: #777; }
+.signature-panel span { font-size: 12px; }
+.signature-panel img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.card-number-banners { position: relative; isolation: isolate; }
+.card-number-banners::before { content: ""; position: absolute; z-index: -1; top: 0; right: 0; left: 0; height: 17.4cqw; background: #716c34; clip-path: polygon(0 0, 100% 8.7cqw, 100% 100%, 0 100%); pointer-events: none; }
 .card-number-panel { display: grid; grid-template-columns: minmax(0, 1fr) 12.2cqw; align-items: start; gap: 6cqw; min-height: 44.85cqw; padding: 14cqw 4.2cqw 10cqw; color: #172015; background: #fef363; clip-path: polygon(0 8.7cqw, 100% 0, 100% 100%, 0 100%); }
 .card-number-panel dt { color: inherit; }
 .card-number-panel dd { font-size: clamp(24px, 6.8cqw, 30px); overflow-wrap: anywhere; }
@@ -130,8 +135,10 @@ dialog::backdrop { background: #000a; backdrop-filter: blur(6px); }
 .close-button { display: grid; place-items: center; width: 44px; height: 44px; margin: -9px -12px 0 0; padding: 0; border: none; color: #b4baaa; background: none; font-size: 30px; }
 .dialog-description { margin: 16px 0 24px; color: #a0a792; font-size: 12px; line-height: 1.6; }
 form > label:not(.checkbox-label), .label-fields label { display: block; margin: 18px 0 8px; font-size: 12px; color: #dce0d3; }
-.label-fields { min-width: 0; margin: 24px 0 0; padding: 12px; border: 1px solid #404633; border-radius: 8px; }
-.label-fields legend { padding: 0 6px; color: var(--accent); font-size: 13px; }
+.label-fields, .signature-field { min-width: 0; margin: 24px 0 0; padding: 12px; border: 1px solid #404633; border-radius: 8px; }
+.label-fields legend, .signature-field legend { padding: 0 6px; color: var(--accent); font-size: 13px; }
+#signature-pad { display: block; width: 100%; height: auto; margin: 12px 0; background: #fff; border: 1px solid #404633; border-radius: 4px; touch-action: none; cursor: crosshair; }
+#signature-pad[aria-disabled="true"] { cursor: not-allowed; opacity: .6; }
 input[type="text"], input[type="date"], input[type="datetime-local"] { display: block; min-width: 0; width: 100%; min-height: 48px; padding: 12px; color: #f3f4eb; background: #10120e; border: 1px solid #404633; border-radius: 8px; font-size: 16px; }
 .checkbox-label { display: flex; align-items: center; gap: 10px; margin-top: 22px; font-size: 12px; }
 input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }

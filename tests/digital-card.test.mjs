@@ -18,6 +18,8 @@ function fixture(options = {}) {
   const imageFormats = [];
   const imageFills = [];
   const imageMappings = [];
+  const signatureDraws = [];
+  const signatureCaptures = new Map();
   const media = new window.EventTarget();
   Object.defineProperty(media, "matches", { get: () => reduced });
   window.matchMedia = (query) => query.includes("prefers-reduced-motion") ? media : { matches: options.mobile ?? false };
@@ -40,6 +42,18 @@ function fixture(options = {}) {
   };
   window.HTMLCanvasElement.prototype.getContext = function () {
     const canvas = this;
+    if (canvas.id === "signature-pad") {
+      return options.signatureUnavailable ? null : {
+        clearRect() { canvas.signatureInk = 0; },
+        beginPath() {},
+        arc(x, y) { signatureDraws.push({ type: "dot", x, y }); },
+        fill() { canvas.signatureInk = (canvas.signatureInk ?? 0) + 1; },
+        moveTo(x, y) { signatureDraws.push({ type: "from", x, y }); },
+        lineTo(x, y) { signatureDraws.push({ type: "to", x, y }); },
+        stroke() { canvas.signatureInk = (canvas.signatureInk ?? 0) + 1; },
+        drawImage() { canvas.signatureInk = 1; signatureDraws.push({ type: "restore" }); }
+      };
+    }
     return options.canvasUnavailable ? null : {
       fillRect(x, y, width, height) { imageFills.push({ width, height }); },
       drawImage(image, x, y, width, height) { imageDraws.push({ width, height }); },
@@ -55,9 +69,16 @@ function fixture(options = {}) {
     };
   };
   window.HTMLCanvasElement.prototype.toDataURL = function (format) {
+    if (this.id === "signature-pad") {
+      if (options.signatureEncodingFailure) throw new window.Error("PNG encoding unavailable.");
+      return `data:${format};base64,${window.btoa(`signature-${this.signatureInk ?? 0}`)}`;
+    }
     imageFormats.push(format);
     return `data:${format};base64,${this.mappedPixels ? window.btoa(JSON.stringify(this.mappedPixels)) : "AA=="}`;
   };
+  window.HTMLCanvasElement.prototype.setPointerCapture = function (pointer) { signatureCaptures.set(this, pointer); };
+  window.HTMLCanvasElement.prototype.hasPointerCapture = function (pointer) { return signatureCaptures.get(this) === pointer; };
+  window.HTMLCanvasElement.prototype.releasePointerCapture = function () { signatureCaptures.delete(this); };
   window.HTMLDialogElement.prototype.showModal = function () { this.setAttribute("open", ""); };
   window.HTMLDialogElement.prototype.close = function () { this.removeAttribute("open"); this.dispatchEvent(new window.Event("close")); };
   const frames = new Map();
@@ -70,13 +91,20 @@ function fixture(options = {}) {
   window.eval(script);
   const get = (id) => document.getElementById(id);
   return {
-    window, document, get, warnings, frames, timers, imageDraws, imageFormats, imageFills, imageMappings,
+    window, document, get, warnings, frames, timers, imageDraws, imageFormats, imageFills, imageMappings, signatureDraws,
     close: () => window.close(),
     async motion() { get("motion-button").click(); await new Promise(setImmediate); },
     event(type, values = {}) {
       const event = new window.Event(type);
       Object.assign(event, values);
       window.dispatchEvent(event);
+    },
+    signature(type, values = {}) {
+      const pad = get("signature-pad");
+      pad.getBoundingClientRect = () => ({ left: 0, top: 0, width: 409, height: 103 });
+      const event = new window.Event(type, { bubbles: true, cancelable: true });
+      Object.assign(event, { pointerId: 1, button: 0, isPrimary: true, clientX: 20, clientY: 30, pointerType: "mouse", ...values });
+      pad.dispatchEvent(event);
     },
     pointer(x, y) {
       const event = new window.Event("pointermove");
@@ -171,7 +199,7 @@ test("the mobile header is a transform-free viewport overlay above the card", ()
   assert.equal(computed.right, "0px");
   assert.ok(computed.transform === "" || computed.transform === "none");
   assert.ok(Number(computed.zIndex) > Number(dom.window.getComputedStyle(dom.window.document.querySelector(".motion-notice")).zIndex));
-  assert.equal(new URL(dom.window.document.querySelector('link[rel="stylesheet"]').getAttribute("href"), "https://example.test/id-sample/").searchParams.get("v"), "banner-yellow-4");
+  assert.equal(new URL(dom.window.document.querySelector('link[rel="stylesheet"]').getAttribute("href"), "https://example.test/id-sample/").searchParams.get("v"), "signature-ribbons-5");
   dom.window.close();
 });
 
@@ -183,7 +211,182 @@ test("the bottom banner matches the sampled reference yellow without changing sh
   const banner = dom.window.document.querySelector(".card-number-panel");
   assert.equal(dom.window.getComputedStyle(banner).backgroundColor, "rgb(254, 243, 99)");
   assert.equal(dom.window.getComputedStyle(dom.window.document.documentElement).getPropertyValue("--accent").trim(), "#e8f986");
+  assert.equal(banner.parentElement.className, "card-number-banners");
+  const ribbon = [...sheet.sheet.cssRules].find((rule) => rule.selectorText === ".card-number-banners::before");
+  assert.equal(ribbon.style.getPropertyValue("background"), "#716c34");
+  assert.match(ribbon.style.getPropertyValue("clip-path"), /polygon\(0 0, 100% 8.7cqw/);
+  const signature = dom.window.document.querySelector(".signature-panel");
+  assert.equal(dom.window.getComputedStyle(signature).aspectRatio, "409 / 103");
+  assert.equal(dom.window.getComputedStyle(signature).backgroundColor, "rgb(255, 255, 255)");
   dom.window.close();
+});
+
+test("signature pad supports mouse, touch and pen, scales coordinates and only applies ink on save", () => {
+  for (const pointerType of ["mouse", "touch", "pen"]) {
+    const f = fixture();
+    f.get("edit-button").click();
+    f.signature("pointerdown", { pointerType });
+    assert.equal(f.get("save-details").disabled, true);
+    f.submit();
+    assert.match(f.get("form-status").textContent, /finish drawing/);
+    f.signature("pointermove", { pointerType, clientX: 80, clientY: 50 });
+    f.signature("pointerup", { pointerType, clientX: 80, clientY: 50 });
+    assert.deepEqual(f.signatureDraws[0], { type: "dot", x: 40, y: 60 });
+    assert.ok(f.signatureDraws.some((stroke) => stroke.type === "to" && stroke.x === 160 && stroke.y === 100));
+    assert.equal(f.get("save-details").disabled, false);
+    assert.equal(f.get("signature-image").hidden, true);
+    f.submit();
+    assert.equal(f.get("signature-image").hidden, false);
+    assert.match(f.get("signature-image").src, /^data:image\/png;base64,/);
+    assert.equal(f.get("signature-placeholder").hidden, true);
+    assert.equal(f.window.localStorage.getItem(storageKey), null);
+    f.close();
+  }
+});
+
+test("saved signatures survive a new visit, can be appended or cleared, and reset removes them", async () => {
+  const f = fixture();
+  f.get("edit-button").click();
+  f.signature("pointerdown");
+  f.signature("pointerup");
+  f.get("remember-input").checked = true;
+  f.submit();
+  const saved = f.window.localStorage.getItem(storageKey);
+  const restored = fixture({ saved });
+  assert.equal(restored.get("signature-image").src, f.get("signature-image").src);
+  restored.get("edit-button").click();
+  await new Promise(setImmediate);
+  assert.ok(restored.signatureDraws.some((stroke) => stroke.type === "restore"));
+  assert.equal(restored.get("save-details").disabled, false);
+  restored.signature("pointerdown");
+  restored.signature("pointerup");
+  restored.submit();
+  assert.notEqual(JSON.parse(restored.window.localStorage.getItem(storageKey)).signature, JSON.parse(saved).signature);
+  restored.get("edit-button").click();
+  restored.get("clear-signature").click();
+  assert.equal(restored.get("signature-image").hidden, false, "clearing is pending until save");
+  restored.submit();
+  assert.equal(restored.get("signature-image").hidden, true);
+  assert.equal(restored.get("signature-image").hasAttribute("src"), false);
+  assert.equal(restored.get("signature-placeholder").hidden, false);
+  assert.equal(JSON.parse(restored.window.localStorage.getItem(storageKey)).signature, null);
+  f.get("edit-button").click();
+  f.get("reset-details").click();
+  assert.equal(f.get("signature-image").hidden, true);
+  assert.equal(f.window.localStorage.getItem(storageKey), null);
+  f.close();
+  restored.close();
+});
+
+test("closing the editor discards pending signature drawing and clearing", async () => {
+  const f = fixture();
+  f.get("edit-button").click();
+  f.signature("pointerdown");
+  f.signature("pointerup");
+  f.get("close-dialog").click();
+  assert.equal(f.get("signature-image").hidden, true);
+  f.get("edit-button").click();
+  f.submit();
+  assert.equal(f.get("signature-image").hidden, true);
+  f.get("edit-button").click();
+  f.signature("pointerdown");
+  f.signature("pointerup");
+  f.submit();
+  const original = f.get("signature-image").src;
+  f.get("edit-button").click();
+  await new Promise(setImmediate);
+  f.get("clear-signature").click();
+  f.get("close-dialog").click();
+  assert.equal(f.get("signature-image").src, original);
+  f.close();
+});
+
+test("secondary pointers are ignored, coalesced samples are drawn and interruptions finish a partial signature", () => {
+  const f = fixture();
+  f.get("edit-button").click();
+  f.signature("pointerdown", { button: 2 });
+  f.signature("pointerdown", { isPrimary: false });
+  assert.equal(f.signatureDraws.length, 0);
+  f.signature("pointerdown");
+  f.signature("pointermove", { pointerId: 2 });
+  assert.equal(f.signatureDraws.length, 1);
+  f.signature("pointermove", { getCoalescedEvents: () => [{ clientX: 40, clientY: 40 }, { clientX: 50, clientY: 45 }] });
+  assert.ok(f.signatureDraws.some((stroke) => stroke.type === "to" && stroke.x === 100 && stroke.y === 90));
+  f.signature("pointercancel");
+  assert.equal(f.get("save-details").disabled, false);
+  f.submit();
+  assert.equal(f.get("signature-image").hidden, false);
+  f.get("edit-button").click();
+  f.get("clear-signature").click();
+  f.signature("pointerdown");
+  f.signature("lostpointercapture");
+  assert.equal(f.get("save-details").disabled, false);
+  f.close();
+});
+
+test("signature decoding, encoding and canvas errors are explicit and recoverable", async () => {
+  const saved = JSON.stringify({ name: "Person", birthdate: "2000-01-01", signature: "data:image/png;base64,AA==" });
+  const decoding = fixture({ saved, decodeFailure: true });
+  decoding.get("edit-button").click();
+  await new Promise(setImmediate);
+  assert.match(decoding.get("signature-status").textContent, /could not be opened/);
+  assert.equal(decoding.get("save-details").disabled, true);
+  decoding.get("clear-signature").click();
+  decoding.submit();
+  assert.equal(decoding.get("signature-image").hidden, true);
+  const encoding = fixture({ signatureEncodingFailure: true });
+  encoding.get("edit-button").click();
+  encoding.signature("pointerdown");
+  encoding.signature("pointerup");
+  assert.match(encoding.get("signature-status").textContent, /could not be prepared/);
+  encoding.submit();
+  assert.match(encoding.get("form-status").textContent, /Clear it/);
+  encoding.get("clear-signature").click();
+  encoding.submit();
+  assert.equal(encoding.get("details-dialog").open, false);
+  const unavailable = fixture({ signatureUnavailable: true });
+  unavailable.get("edit-button").click();
+  assert.match(unavailable.get("signature-status").textContent, /unavailable/);
+  assert.equal(unavailable.get("signature-pad").getAttribute("aria-disabled"), "true");
+  unavailable.submit();
+  assert.equal(unavailable.get("details-dialog").open, false);
+  decoding.close();
+  encoding.close();
+  unavailable.close();
+});
+
+test("pending signature decoding blocks save and clearing or closing cancels stale restoration", async () => {
+  let resolve;
+  const f = fixture({
+    saved: JSON.stringify({ name: "Person", birthdate: "2000-01-01", signature: "data:image/png;base64,AA==" }),
+    decodeGate: new Promise((done) => { resolve = done; })
+  });
+  f.get("edit-button").click();
+  assert.equal(f.get("save-details").disabled, true);
+  f.submit();
+  assert.match(f.get("form-status").textContent, /Wait for the signature/);
+  f.get("clear-signature").click();
+  assert.equal(f.get("save-details").disabled, false);
+  resolve();
+  await new Promise(setImmediate);
+  assert.ok(!f.signatureDraws.some((stroke) => stroke.type === "restore"));
+  f.submit();
+  assert.equal(f.get("signature-image").hidden, true);
+  f.close();
+});
+
+test("legacy details receive an empty signature and unsafe saved signatures are rejected", () => {
+  const legacy = fixture({ saved: JSON.stringify({ name: "Saved Person", birthdate: "2000-01-01" }) });
+  assert.equal(legacy.get("display-name").textContent, "Saved Person");
+  assert.equal(legacy.get("signature-image").hidden, true);
+  assert.equal(legacy.warnings.length, 0);
+  legacy.close();
+  for (const signature of ["https://example.test/signature.png", "data:image/svg+xml;base64,AA==", 1]) {
+    const f = fixture({ saved: JSON.stringify({ name: "Saved Person", birthdate: "2000-01-01", signature }) });
+    assert.match(f.get("form-status").textContent, /could not be loaded/);
+    assert.equal(f.get("signature-image").hasAttribute("src"), false);
+    f.close();
+  }
 });
 
 test("personal defaults appear before scripts, populate the editor and return on reset without overwriting saved edits", () => {
