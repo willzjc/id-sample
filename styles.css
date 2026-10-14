@@ -6,6 +6,7 @@
   font-synthesis: none;
   --accent: #e8f986;
   --muted: #999c94;
+  --header-height: calc(65px + env(safe-area-inset-top, 0px));
 }
 
 * { box-sizing: border-box; }
@@ -52,14 +53,14 @@ button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke
   overflow: hidden;
   width: 100%;
   max-width: 430px;
-  padding-top: calc(65px + env(safe-area-inset-top));
+  padding-top: var(--header-height);
   container-type: inline-size;
   background: #111111;
   border: 1px solid #282a24;
   border-radius: 16px;
   box-shadow: 0 24px 75px #0007;
 }
-.card-header { position: fixed; z-index: 25; top: 0; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; width: 100%; max-width: 430px; min-height: 64px; padding: calc(10px + env(safe-area-inset-top)) 10px 10px; border-bottom: 1px solid #282a24; background: #111111; }
+.card-header { position: fixed; z-index: 50; top: 0; right: 0; left: 0; margin-inline: auto; display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; width: 100%; max-width: 430px; height: var(--header-height); padding: calc(10px + env(safe-area-inset-top, 0px)) 10px 10px; border-bottom: 1px solid #282a24; background: #111111; box-shadow: 0 6px 16px #0006; }
 .card-header h1 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(16px, 4.4vw, 21px); line-height: 1.2; font-weight: 650; text-align: center; letter-spacing: -.3px; }
 .header-control { display: grid; place-items: center; width: 44px; height: 44px; padding: 8px; border: 0; color: #b8dce8; background: transparent; border-radius: 6px; }
 .header-control svg { width: 24px; height: 24px; }
@@ -163,7 +164,7 @@ input[type="file"]::file-selector-button { min-height: 48px; margin-right: 10px;
   body { padding-bottom: 0; }
   .card-help, .header-control, .motion-notice, dialog { display: none; }
   .workspace { display: block; padding: 0; }
-  .card-header { position: static; transform: none; display: block; min-height: auto; padding: 16px; }
+  .card-header { position: static; display: block; height: auto; margin-inline: 0; padding: 16px; box-shadow: none; }
   .card-header h1 { white-space: normal; overflow: visible; }
   .digital-card { width: 430px; padding-top: 0; box-shadow: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .invalid-banner { position: static; transform: none; width: 430px; max-width: 100%; margin-top: 12px; padding: 12px; color: #111; background: #fff; border-color: #777; }

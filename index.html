@@ -8,12 +8,11 @@
   <meta name="theme-color" content="#111111">
   <title>Template License | Interactive prototype</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=mobile-header-2">
   <script src="./app.js" defer></script>
 </head>
 <body>
-  <main class="workspace">
-    <header class="card-header">
+  <header class="card-header">
         <button id="motion-button" class="header-control" type="button" aria-pressed="false" title="Toggle phone motion">
           <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 17h4M3 8l-2 4 2 4M21 8l2 4-2 4"/></svg>
           <span id="motion-button-label" class="sr-only">Enable motion</span>
@@ -22,7 +21,8 @@
         <button id="edit-button" class="header-control" type="button" aria-label="Edit details" title="Edit details and images">
           <svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>
         </button>
-    </header>
+  </header>
+  <main class="workspace">
     <article class="digital-card" id="digital-card" aria-labelledby="card-heading">
       <div class="card-body">
         <div class="hologram" aria-hidden="true"><div class="hologram-colour"></div></div>

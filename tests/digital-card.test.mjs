@@ -146,12 +146,31 @@ test("standalone page stays visibly non-official, unindexed and free of remote a
   assert.equal(f.get("motion-button").closest(".card-header") !== null, true);
   assert.equal(f.get("edit-button").closest(".card-header") !== null, true);
   assert.equal(f.document.querySelector(".card-header").closest(".digital-card"), null, "the fixed header stays outside the card's query container");
+  assert.equal(f.document.querySelector(".card-header").parentElement, f.document.body, "the mobile overlay is outside all scrolling/layout containers");
   assert.equal(f.document.querySelector(".introduction"), null);
   assert.equal(f.document.querySelector(".refresh-note"), null);
   for (const element of f.document.querySelectorAll("[src], [href]")) {
     assert.ok(!/^(https?:)?\/\//.test(element.getAttribute("src") ?? element.getAttribute("href")));
   }
   f.close();
+});
+
+test("the mobile header is a transform-free viewport overlay above the card", () => {
+  const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  const dom = new JSDOM(html);
+  const sheet = dom.window.document.createElement("style");
+  sheet.textContent = styles;
+  dom.window.document.head.append(sheet);
+  const header = dom.window.document.querySelector(".card-header");
+  const computed = dom.window.getComputedStyle(header);
+  assert.equal(computed.position, "fixed");
+  assert.equal(computed.top, "0px");
+  assert.equal(computed.left, "0px");
+  assert.equal(computed.right, "0px");
+  assert.ok(computed.transform === "" || computed.transform === "none");
+  assert.ok(Number(computed.zIndex) > Number(dom.window.getComputedStyle(dom.window.document.querySelector(".motion-notice")).zIndex));
+  assert.equal(new URL(dom.window.document.querySelector('link[rel="stylesheet"]').getAttribute("href"), "https://example.test/id-sample/").searchParams.get("v"), "mobile-header-2");
+  dom.window.close();
 });
 
 test("name and birthdate are editable, trimmed, timezone-safe and not stored by default", () => {

@@ -41,6 +41,12 @@ scrolling, with the phone and edit controls beside it. Its editable title accept
 up to 64 characters. Long titles use an ellipsis on small screens but remain
 complete in the page title and accessible heading; printing displays the full
 title. Older saved cards receive the default title without losing other edits.
+The mobile header is a direct child of the page body, fixed to the viewport
+above the card and motion notices, without transformed centring or scrolling
+ancestors. A shared safe-area-aware height reserves space above the portrait.
+The versioned stylesheet URL forces browsers to fetch the updated header styles.
+The editor remains a modal above the header; printing removes the floating
+position and shadow.
 The original floral silhouette uses broader side petals and wider tapered
 separations rather than rounded vein-like slits; it does not reproduce official
 licence security artwork.
