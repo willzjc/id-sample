@@ -113,10 +113,11 @@ The site has no external assets, analytics or server upload endpoints.
 Storage/quota errors are reported in the editor. Retaining the original and
 processed logo may consume additional browser storage.
 
-The old CV subpage and this site use different saved-card keys because GitHub
-Pages project sites share the `willzjc.github.io` origin. The new site starts with
-sample details; selecting images on the old localhost preview does not transfer
-them to this site. No CV content is included in this repository.
+This repository is the single source for the app. The older CV card subpage and
+local copy have been removed; the CV itself remains unchanged. The saved-card
+key differs from the old copy because GitHub Pages project sites share the
+`willzjc.github.io` origin. Images saved in the old browser preview do not transfer
+to this site. No CV content is included in this repository.
 
 ## Development and checks
 
@@ -144,7 +145,8 @@ checks on an actual phone.
 GitHub Pages publishes the root of `main` at
 `https://willzjc.github.io/id-sample/`. `.nojekyll` serves the static files
 without Jekyll processing. Asset URLs are relative and work under this subpath.
-The CV repository and its existing subpage remain unchanged.
+Only this repository is used for app edits and deployment. The CV remains
+unchanged, and its older card subpage has been removed.
 
 Run the deploy script from this app folder:
 
