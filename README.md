@@ -3,7 +3,7 @@
 A standalone, visibly non-official personal card prototype:
 [open the app](https://willzjc.github.io/id-sample/).
 
-This is **not valid identification** and has no official verification capability.
+This is **template identification** and has no official verification capability.
 The non-official warning appears in a compact bar fixed to the bottom of the
 screen, stays visible while scrolling, and remains present in printed output.
 Bottom spacing keeps page content clear of the bar and phone safe areas.
