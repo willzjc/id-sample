@@ -373,6 +373,18 @@ test("pending signature decoding blocks save and clearing or closing cancels sta
   f.submit();
   assert.equal(f.get("signature-image").hidden, true);
   f.close();
+  let resolveClosed;
+  const closed = fixture({
+    saved: JSON.stringify({ name: "Person", birthdate: "2000-01-01", signature: "data:image/png;base64,AA==" }),
+    decodeGate: new Promise((done) => { resolveClosed = done; })
+  });
+  closed.get("edit-button").click();
+  closed.get("close-dialog").click();
+  resolveClosed();
+  await new Promise(setImmediate);
+  assert.ok(!closed.signatureDraws.some((stroke) => stroke.type === "restore"));
+  assert.equal(closed.get("signature-image").hidden, false, "closing leaves the saved card signature intact");
+  closed.close();
 });
 
 test("legacy details receive an empty signature and unsafe saved signatures are rejected", () => {

@@ -328,7 +328,7 @@
   });
 
   function drawSignatureStroke(event) {
-    if (event.pointerId !== signaturePointer) return;
+    if (signaturePointer === null || event.pointerId !== signaturePointer) return;
     const samples = typeof event.getCoalescedEvents === "function" ? event.getCoalescedEvents() : [];
     for (const sample of samples.length ? samples : [event]) {
       const point = signatureCoordinates(sample);
