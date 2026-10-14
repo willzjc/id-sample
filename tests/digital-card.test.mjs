@@ -1109,7 +1109,7 @@ test("local photo and code are previewed, resized and applied only when saved", 
   assert.equal(f.get("portrait-placeholder").hasAttribute("hidden"), true);
   assert.equal(f.get("code-image").hidden, false);
   assert.equal(f.get("code-placeholder").hasAttribute("hidden"), true);
-  assert.match(f.get("code-label").textContent, /PERSONAL CODE \/ NOT OFFICIAL/);
+  assert.equal(f.get("code-label"), null);
   assert.equal(f.window.localStorage.getItem(storageKey), null);
   // assert.match(f.document.querySelector(".invalid-banner").textContent, /NOT VALID IDENTIFICATION/);
   f.close();

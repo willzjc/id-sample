@@ -176,7 +176,6 @@
     }
     document.getElementById("portrait-label").hidden = Boolean(details.photo);
     document.getElementById("portrait-container").setAttribute("aria-label", details.photo ? "Personal photo" : "Illustrated placeholder portrait");
-    document.getElementById("code-label").textContent = details.code ? "PERSONAL CODE / NOT OFFICIAL" : "DECORATIVE ONLY";
     document.getElementById("code-container").setAttribute("aria-label", details.code ? "User-selected personal code. Not official ID verification." : "Decorative pattern. Not a QR code.");
     document.getElementById("logo-container").setAttribute("aria-label", details.logo ? "Custom personal logo" : "Personal card concept");
     const secondaryPortrait = document.getElementById("secondary-portrait-image");

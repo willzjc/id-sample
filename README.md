@@ -162,12 +162,18 @@ unchanged, and its older card subpage has been removed.
 Run the deploy script from this app folder:
 
 ```sh
+# macOS/Linux:
 ./deploy.sh
-# Or:
+# Windows (PowerShell 7):
+./deploy.ps1
+# Either platform:
 npm run deploy
 # Optional commit message:
-./deploy.sh "Update card styling"
+npm run deploy -- "Update card styling"
 ```
+
+`npm run deploy` picks `deploy.ps1` on Windows and `deploy.sh` elsewhere; both
+run the same checks in the same order.
 
 Requires Git, Node.js/npm, and the GitHub CLI (`gh`), signed in with permission
 to push to `willzjc/id-sample` (`gh auth login`). Install the test dependencies

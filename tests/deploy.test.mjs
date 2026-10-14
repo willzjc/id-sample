@@ -5,6 +5,8 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 
+const skip = process.platform === "win32" ? "deploy.sh needs a POSIX shell; see deploy.ps1.test.mjs" : false;
+
 const script = readFileSync(new URL("../deploy.sh", import.meta.url), "utf8");
 const stub = `#!/usr/bin/env bash
 set -eu
@@ -55,7 +57,7 @@ function deploy(options = {}, args = []) {
   }
 }
 
-test("deploy script commits all app edits without prompting, preserves hooks and verifies Pages before success", () => {
+test("deploy script commits all app edits without prompting, preserves hooks and verifies Pages before success", { skip }, () => {
   const result = deploy({}, ["Update card styling"]);
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.commands, /git add -A -- \./);
@@ -71,7 +73,7 @@ test("deploy script commits all app edits without prompting, preserves hooks and
   assert.match(result.stdout, /Deployment verified: https:\/\/willzjc.github.io\/id-sample\/\?v=abc123/);
 });
 
-test("deploy script also verifies committed changes without creating an empty commit", () => {
+test("deploy script also verifies committed changes without creating an empty commit", { skip }, () => {
   const result = deploy({ TEST_DIRTY: "0" });
   assert.equal(result.status, 0, result.stderr);
   assert.doesNotMatch(result.commands, /git add|git commit/);
@@ -79,7 +81,7 @@ test("deploy script also verifies committed changes without creating an empty co
   assert.match(result.commands, /gh run watch/);
 });
 
-test("deploy stops before testing or committing on the wrong branch, wrong origin or a newer upstream", () => {
+test("deploy stops before testing or committing on the wrong branch, wrong origin or a newer upstream", { skip }, () => {
   for (const options of [
     { TEST_BRANCH: "topic" },
     { TEST_REMOTE: "https://github.com/willzjc/cv.git" },
@@ -93,21 +95,21 @@ test("deploy stops before testing or committing on the wrong branch, wrong origi
   }
 });
 
-test("failed tests prevent any staging, commits or pushes", () => {
+test("failed tests prevent any staging, commits or pushes", { skip }, () => {
   const result = deploy({ TEST_TEST_EXIT: "1" });
   assert.notEqual(result.status, 0);
   assert.doesNotMatch(result.commands, /git add|git commit|git push/);
   assert.match(result.stderr, /Deployment stopped/);
 });
 
-test("hook-generated changes prevent publishing a success-shaped partial commit", () => {
+test("hook-generated changes prevent publishing a success-shaped partial commit", { skip }, () => {
   const result = deploy({ TEST_HOOK_DIRTY: "1" });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /working tree changed/);
   assert.doesNotMatch(result.commands, /git push/);
 });
 
-test("failed pushes, Pages builds and public asset verification never report success", () => {
+test("failed pushes, Pages builds and public asset verification never report success", { skip }, () => {
   for (const options of [{ TEST_PUSH_EXIT: "1" }, { TEST_BUILD_EXIT: "1" }, { TEST_VERIFY_EXIT: "1" }]) {
     const result = deploy(options);
     assert.notEqual(result.status, 0);
