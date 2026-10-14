@@ -164,7 +164,7 @@
       if (details[kind]) image.src = details[kind];
       else image.removeAttribute("src");
     }
-    document.getElementById("portrait-label").textContent = details.photo ? "PERSONAL PHOTO" : "ILLUSTRATION";
+    document.getElementById("portrait-label").hidden = Boolean(details.photo);
     document.getElementById("portrait-container").setAttribute("aria-label", details.photo ? "Personal photo" : "Illustrated placeholder portrait");
     document.getElementById("code-label").textContent = details.code ? "PERSONAL CODE / NOT OFFICIAL" : "DECORATIVE ONLY";
     document.getElementById("code-container").setAttribute("aria-label", details.code ? "User-selected personal code. Not official ID verification." : "Decorative pattern. Not a QR code.");

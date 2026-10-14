@@ -344,6 +344,7 @@ test("legacy saved cards keep their existing data and receive new field defaults
   assert.equal(f.get("display-class").textContent, "C");
   assert.equal(f.get("display-conditions").textContent, "None");
   assert.equal(f.get("portrait-image").hidden, false);
+  assert.equal(f.get("portrait-label").hidden, true, "uploaded photos have no visible badge");
   assert.match(f.get("display-refreshed").dateTime, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
   assert.equal(f.warnings.length, 0);
   f.close();
@@ -992,6 +993,8 @@ test("remembered images survive reload and removal restores the placeholders", a
   assert.equal(second.get("portrait-image").hidden, false, "removal is not applied until save");
   second.submit();
   assert.equal(second.get("portrait-placeholder").hasAttribute("hidden"), false);
+  assert.equal(second.get("portrait-label").hidden, false);
+  assert.equal(second.get("portrait-label").textContent, "ILLUSTRATION");
   assert.equal(second.get("code-placeholder").hasAttribute("hidden"), false);
   const saved = JSON.parse(second.window.localStorage.getItem(storageKey));
   assert.equal(saved.photo, null);

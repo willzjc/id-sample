@@ -23,6 +23,8 @@ engines avoid indexing the page; it is not a password or privacy boundary.
   Labels accept up to 48 characters and are saved/reset with the details.
 - Choose a portrait, personal barcode/QR image, or your own/authorized top or bottom logo
   from your phone's native photo-library/file chooser. Images are not uploaded.
+  Uploaded portraits have no visible photo badge; the placeholder keeps its
+  **ILLUSTRATION** badge.
 - PNG/WebP logo transparency is preserved. For an opaque logo, enable
   **Remove background colour**, choose a colour, and adjust **Tolerance**.
   Zero matches the exact colour; larger values include nearby shades.
@@ -143,3 +145,29 @@ GitHub Pages publishes the root of `main` at
 `https://willzjc.github.io/id-sample/`. `.nojekyll` serves the static files
 without Jekyll processing. Asset URLs are relative and work under this subpath.
 The CV repository and its existing subpage remain unchanged.
+
+Run the deploy script from this app folder:
+
+```sh
+./deploy.sh
+# Or:
+npm run deploy
+# Optional commit message:
+./deploy.sh "Update card styling"
+```
+
+Requires Git, Node.js/npm, and the GitHub CLI (`gh`), signed in with permission
+to push to `willzjc/id-sample` (`gh auth login`). Install the test dependencies
+with `npm ci --ignore-scripts` if needed.
+
+The script runs tests, automatically stages and commits **all non-ignored edits,
+new files and deletions in this repository without prompting**, then pushes
+`main`, waits for the Pages deployment, and verifies the five live assets against
+the local files. Review changes before running it: this repository is public,
+and GitHub Pages is not private. Browser-saved card details and uploads are not
+part of a deployment unless you deliberately put them in source files.
+
+It requires the correct origin and the `main` branch, stops if upstream is
+ahead, and never force-pushes or skips Git hooks. If there are no local edits,
+it deploys/verifies the current commit. Failed tests, pushes, builds or public
+asset checks exit with an error rather than reporting a successful deployment.
