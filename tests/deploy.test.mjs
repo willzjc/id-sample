@@ -60,6 +60,8 @@ function deploy(options = {}, args = []) {
 test("deploy script commits all app edits without prompting, preserves hooks and verifies Pages before success", { skip }, () => {
   const result = deploy({}, ["Update card styling"]);
   assert.equal(result.status, 0, result.stderr);
+  assert.match(script, /execFileSync\("git", \["show"/);
+  assert.doesNotMatch(script, /hash\(await readFile\(file\)\)/);
   assert.match(result.commands, /git add -A -- \./);
   assert.match(result.commands, /git commit -m Update card styling -m Co-authored-by: Copilot/);
   const expectedOrder = ["npm test", "git add", "git commit", "git push origin main", "gh run watch", "node --input-type=module"];

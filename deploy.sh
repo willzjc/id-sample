@@ -59,20 +59,20 @@ gh run watch "$run" --repo "$repo" --exit-status --interval 5
 
 node --input-type=module - "$site" "$sha" <<'NODE'
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
 import { setTimeout } from "node:timers/promises";
 
 const [, , site, sha] = process.argv;
 const assets = ["index.html", "styles.css", "app.js", "icon.svg", "rosette.svg"];
 const hash = (data) => createHash("sha256").update(data).digest("hex");
 for (const file of assets) {
-  const expected = hash(await readFile(file));
+  const expected = hash(execFileSync("git", ["show", `${sha}:${file}`]));
   for (let attempt = 0; ; attempt++) {
     try {
       const response = await fetch(`${site}${file}?deploy=${sha}`, { signal: AbortSignal.timeout(15000) });
       if (!response.ok) throw new Error(`${file}: HTTP ${response.status}`);
       if (hash(Buffer.from(await response.arrayBuffer())) !== expected) {
-        throw new Error(`${file}: published content does not match local content`);
+        throw new Error(`${file}: published content does not match committed content`);
       }
       console.log(`${file}: verified`);
       break;
