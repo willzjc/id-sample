@@ -171,7 +171,18 @@ test("the mobile header is a transform-free viewport overlay above the card", ()
   assert.equal(computed.right, "0px");
   assert.ok(computed.transform === "" || computed.transform === "none");
   assert.ok(Number(computed.zIndex) > Number(dom.window.getComputedStyle(dom.window.document.querySelector(".motion-notice")).zIndex));
-  assert.equal(new URL(dom.window.document.querySelector('link[rel="stylesheet"]').getAttribute("href"), "https://example.test/id-sample/").searchParams.get("v"), "card-footer-3");
+  assert.equal(new URL(dom.window.document.querySelector('link[rel="stylesheet"]').getAttribute("href"), "https://example.test/id-sample/").searchParams.get("v"), "banner-yellow-4");
+  dom.window.close();
+});
+
+test("the bottom banner matches the sampled reference yellow without changing shared accents", () => {
+  const dom = new JSDOM(html);
+  const sheet = dom.window.document.createElement("style");
+  sheet.textContent = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+  dom.window.document.head.append(sheet);
+  const banner = dom.window.document.querySelector(".card-number-panel");
+  assert.equal(dom.window.getComputedStyle(banner).backgroundColor, "rgb(254, 243, 99)");
+  assert.equal(dom.window.getComputedStyle(dom.window.document.documentElement).getPropertyValue("--accent").trim(), "#e8f986");
   dom.window.close();
 });
 

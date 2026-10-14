@@ -101,7 +101,7 @@ dd { margin: 0; font-weight: 700; font-size: clamp(23px, 6.8cqw, 29px); line-hei
 .detail-tiles dd { font-size: 20px; overflow-wrap: anywhere; }
 .secondary-portrait { width: calc(20000cqw / 738); aspect-ratio: 200 / 245; margin: calc(3200cqw / 738) 0 calc(30700cqw / 738) calc(3000cqw / 738 - 4.2cqw); pointer-events: none; }
 .secondary-portrait img { display: block; width: 100%; height: 100%; object-fit: cover; opacity: .24; filter: grayscale(1) brightness(.85); }
-.card-number-panel { display: grid; grid-template-columns: minmax(0, 1fr) 12.2cqw; align-items: start; gap: 6cqw; min-height: 44.85cqw; padding: 14cqw 4.2cqw 10cqw; color: #172015; background: var(--accent); clip-path: polygon(0 8.7cqw, 100% 0, 100% 100%, 0 100%); }
+.card-number-panel { display: grid; grid-template-columns: minmax(0, 1fr) 12.2cqw; align-items: start; gap: 6cqw; min-height: 44.85cqw; padding: 14cqw 4.2cqw 10cqw; color: #172015; background: #fef363; clip-path: polygon(0 8.7cqw, 100% 0, 100% 100%, 0 100%); }
 .card-number-panel dt { color: inherit; }
 .card-number-panel dd { font-size: clamp(24px, 6.8cqw, 30px); overflow-wrap: anywhere; }
 .bottom-logo { width: 100%; height: 12.2cqw; display: grid; place-items: center; }

@@ -66,7 +66,9 @@ The lower section reuses the exact uploaded portrait data, rendered in grayscale
 at 24% opacity without creating or storing another image. Its reference ratios
 are 200/738 of the card width, 200:245 aspect ratio, 30/738 left offset and
 32/738 spacing below the class tiles. CSS scales these proportions with the card.
-The original pale accent footer is at least 44.85% of the card width
+The bottom banner uses `#fef363` (RGB 254, 243, 99), sampled from the supplied
+reference screenshot, independently of the other UI accent colours.
+The footer is at least 44.85% of the card width
 high, with an editable Card Number and independent, transparency-preserving
 bottom logo. No official logo, address or signature is included.
 Do not use an official document's verification code in the personal-code slot.
