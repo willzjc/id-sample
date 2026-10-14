@@ -8,6 +8,8 @@
   const motionStatus = document.getElementById("motion-status");
   const motionNotice = document.getElementById("motion-notice");
   const motionRetry = document.getElementById("motion-retry");
+  const skipMotion = document.getElementById("skip-motion");
+  const mobileDevice = window.matchMedia("(pointer: coarse)").matches && navigator.maxTouchPoints > 0;
   const dialog = document.getElementById("details-dialog");
   const form = document.getElementById("details-form");
   const nameInput = document.getElementById("name-input");
@@ -32,32 +34,46 @@
   const maxDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const defaults = {
     bannerTitle: "Template License",
-    name: "Alex Morgan",
-    birthdate: "1995-09-02",
+    name: "Will Chin",
+    birthdate: "1991-10-14",
     profileNumber: "SAMPLE-0001",
+    cardNumber: "SAMPLE-0002",
     expiry: "2030-12-31",
     refreshed: `${maxDate}T${String(today.getHours()).padStart(2, "0")}:${String(today.getMinutes()).padStart(2, "0")}`,
     class: "C",
     conditions: "None",
+    refreshedLabel: "Refreshed",
+    profileNumberLabel: "Licence Number",
+    cardNumberLabel: "Card Number",
+    expiryLabel: "Expiry",
+    birthdateLabel: "Date of birth",
+    classLabel: "Class",
+    conditionsLabel: "Conditions",
     photo: null,
     code: null,
     logo: null,
+    bottomLogo: null,
     logoSource: null,
     logoTransparency: { enabled: false, colour: "#000000", tolerance: 24 }
   };
   birthdateInput.max = maxDate;
   let details = { ...defaults };
   let remembered = false;
-  const imageTargets = { photo: "portrait", code: "code", logo: "logo" };
+  const imageTargets = { photo: "portrait", code: "code", logo: "logo", bottomLogo: "bottom-logo" };
   const imageKinds = Object.keys(imageTargets);
-  let pendingImages = { photo: null, code: null, logo: null };
+  const imageControlId = (kind) => kind === "bottomLogo" ? "bottom-logo" : kind;
+  let pendingImages = Object.fromEntries(imageKinds.map((kind) => [kind, null]));
   let pendingLogoSource = null;
   let pendingLogoTransparency = { ...defaults.logoTransparency };
   let logoLoading = false;
   let logoError = false;
   let editorVersion = 0;
-  const imageVersions = { photo: 0, code: 0, logo: 0 };
-  const imageBusy = { photo: false, code: false, logo: false };
+  const imageVersions = Object.fromEntries(imageKinds.map((kind) => [kind, 0]));
+  const imageBusy = Object.fromEntries(imageKinds.map((kind) => [kind, false]));
+  const permittedSensors = new Set();
+  let motionPromptShown = false;
+  let motionSkipped = false;
+  let pageActive = true;
   let sensorType = null;
   let retrySensorType = null;
   let pendingSensor = null;
@@ -71,12 +87,23 @@
   let current = { x: 0, y: 0 };
 
   const clamp = (value) => Math.max(-1, Math.min(1, value));
+  const labelFields = [
+    { key: "refreshedLabel", id: "refreshed", label: "refreshed label" },
+    { key: "profileNumberLabel", id: "profile-number", label: "licence number label" },
+    { key: "cardNumberLabel", id: "card-number", label: "card number label" },
+    { key: "expiryLabel", id: "expiry", label: "expiry label" },
+    { key: "birthdateLabel", id: "birthdate", label: "birthdate label" },
+    { key: "classLabel", id: "class", label: "class label" },
+    { key: "conditionsLabel", id: "conditions", label: "conditions label" }
+  ].map((field) => ({ ...field, input: document.getElementById(`${field.id}-label-input`), limit: 48 }));
   const textFields = [
     { key: "bannerTitle", input: bannerTitleInput, limit: 64, label: "banner title" },
     { key: "name", input: nameInput, limit: 64, label: "display name" },
-    { key: "profileNumber", input: profileNumberInput, limit: 32, label: "profile number" },
+    { key: "profileNumber", input: profileNumberInput, limit: 32, label: "licence number" },
+    { key: "cardNumber", input: document.getElementById("card-number-input"), limit: 32, label: "card number" },
     { key: "class", input: classInput, limit: 32, label: "class" },
-    { key: "conditions", input: conditionsInput, limit: 160, label: "conditions (use None when there are no conditions)" }
+    { key: "conditions", input: conditionsInput, limit: 160, label: "conditions (use None when there are no conditions)" },
+    ...labelFields
   ];
 
   function validText(value, limit) {
@@ -112,12 +139,16 @@
   }
 
   function renderDetails() {
+    for (const field of labelFields) {
+      document.getElementById(`display-${field.id}-label`).textContent = details[field.key];
+    }
     document.getElementById("card-heading").textContent = details.bannerTitle;
     document.getElementById("card-heading").title = details.bannerTitle;
     document.title = `${details.bannerTitle} | Interactive prototype`;
     document.getElementById("display-name").textContent = details.name;
     document.getElementById("display-birthdate").textContent = formatter.format(new Date(`${details.birthdate}T00:00:00Z`));
     document.getElementById("display-profile-number").textContent = details.profileNumber;
+    document.getElementById("display-card-number").textContent = details.cardNumber;
     document.getElementById("display-expiry").textContent = formatter.format(new Date(`${details.expiry}T00:00:00Z`));
     const refreshed = new Date(`${details.refreshed}:00Z`);
     document.getElementById("display-refreshed").dateTime = details.refreshed;
@@ -138,13 +169,18 @@
     document.getElementById("code-label").textContent = details.code ? "PERSONAL CODE / NOT OFFICIAL" : "DECORATIVE ONLY";
     document.getElementById("code-container").setAttribute("aria-label", details.code ? "User-selected personal code. Not official ID verification." : "Decorative pattern. Not a QR code.");
     document.getElementById("logo-container").setAttribute("aria-label", details.logo ? "Custom personal logo" : "Personal card concept");
+    const secondaryPortrait = document.getElementById("secondary-portrait-image");
+    secondaryPortrait.hidden = !details.photo;
+    if (details.photo) secondaryPortrait.src = details.photo;
+    else secondaryPortrait.removeAttribute("src");
   }
 
   function renderImageEditor(kind) {
     const value = pendingImages[kind];
-    const preview = document.getElementById(`${kind}-preview-image`);
-    document.getElementById(`${kind}-preview`).hidden = !value;
-    document.getElementById(`remove-${kind}`).hidden = !value;
+    const id = imageControlId(kind);
+    const preview = document.getElementById(`${id}-preview-image`);
+    document.getElementById(`${id}-preview`).hidden = !value;
+    document.getElementById(`remove-${id}`).hidden = !value;
     if (value) preview.src = value;
     else preview.removeAttribute("src");
     saveButton.disabled = imageKinds.some((kind) => imageBusy[kind]) || logoError;
@@ -162,7 +198,7 @@
 
   function resetImageEditor() {
     editorVersion += 1;
-    pendingImages = { photo: details.photo, code: details.code, logo: details.logo };
+    pendingImages = Object.fromEntries(imageKinds.map((kind) => [kind, details[kind]]));
     pendingLogoSource = details.logoSource ?? details.logo;
     pendingLogoTransparency = { ...details.logoTransparency };
     logoLoading = false;
@@ -170,8 +206,9 @@
     fillLogoControls();
     for (const kind of imageKinds) {
       imageBusy[kind] = false;
-      document.getElementById(`${kind}-input`).value = "";
-      document.getElementById(`${kind}-status`).textContent = "";
+      const id = imageControlId(kind);
+      document.getElementById(`${id}-input`).value = "";
+      document.getElementById(`${id}-status`).textContent = "";
       renderImageEditor(kind);
     }
   }
@@ -201,15 +238,15 @@
     const image = new Image();
     image.src = source;
     await image.decode();
-    const limit = { photo: 1200, code: 1600, logo: 600 }[kind];
+    const limit = { photo: 1200, code: 1600, logo: 600, bottomLogo: 600 }[kind];
     const scale = Math.min(1, limit / Math.max(image.naturalWidth, image.naturalHeight));
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
     canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
     const context = canvas.getContext("2d");
     if (!context) throw new Error("Image processing is unavailable in this browser.");
-    // Logos keep their alpha channel; photos and codes retain their white backing.
-    if (kind !== "logo") {
+    // Both logos keep alpha; photos and codes retain a white backing.
+    if (kind !== "logo" && kind !== "bottomLogo") {
       context.fillStyle = "#fff";
       context.fillRect(0, 0, canvas.width, canvas.height);
     }
@@ -295,8 +332,9 @@
   logoToleranceInput.addEventListener("input", refreshLogo);
 
   for (const kind of imageKinds) {
-    const input = document.getElementById(`${kind}-input`);
-    const status = document.getElementById(`${kind}-status`);
+    const id = imageControlId(kind);
+    const input = document.getElementById(`${id}-input`);
+    const status = document.getElementById(`${id}-status`);
     input.addEventListener("change", async () => {
       const file = input.files[0];
       if (!file) return;
@@ -339,7 +377,7 @@
         }
       }
     });
-    document.getElementById(`remove-${kind}`).addEventListener("click", () => {
+    document.getElementById(`remove-${id}`).addEventListener("click", () => {
       imageVersions[kind] += 1;
       imageBusy[kind] = false;
       pendingImages[kind] = null;
@@ -364,17 +402,11 @@
       const restored = { ...defaults, ...parsed };
       if (!validateDetails(restored)) throw new Error("Saved card details are invalid.");
       details = {
-        bannerTitle: restored.bannerTitle.trim(),
-        name: restored.name.trim(),
+        ...Object.fromEntries(textFields.map((field) => [field.key, restored[field.key].trim()])),
         birthdate: restored.birthdate,
-        profileNumber: restored.profileNumber.trim(),
         expiry: restored.expiry,
         refreshed: restored.refreshed,
-        class: restored.class.trim(),
-        conditions: restored.conditions.trim(),
-        photo: restored.photo ?? null,
-        code: restored.code ?? null,
-        logo: restored.logo ?? null,
+        ...Object.fromEntries(imageKinds.map((kind) => [kind, restored[kind] ?? null])),
         logoSource: restored.logoSource ?? null,
         logoTransparency: { ...restored.logoTransparency }
       };
@@ -419,14 +451,10 @@
       return;
     }
     const updated = {
-      bannerTitle: bannerTitleInput.value.trim(),
-      name: nameInput.value.trim(),
+      ...Object.fromEntries(textFields.map((field) => [field.key, field.input.value.trim()])),
       birthdate: birthdateInput.value,
-      profileNumber: profileNumberInput.value.trim(),
       expiry: expiryInput.value,
       refreshed: refreshedInput.value,
-      class: classInput.value.trim(),
-      conditions: conditionsInput.value.trim(),
       ...pendingImages,
       logoSource: pendingLogoSource === pendingImages.logo ? null : pendingLogoSource,
       logoTransparency: { ...pendingLogoTransparency }
@@ -532,6 +560,17 @@
   }
 
   document.getElementById("dismiss-motion-notice").addEventListener("click", () => {
+    if (!skipMotion.hidden) {
+      motionSkipped = true;
+      motionButton.hidden = true;
+    }
+    skipMotion.hidden = true;
+    motionNotice.hidden = true;
+  });
+  skipMotion.addEventListener("click", () => {
+    motionSkipped = true;
+    skipMotion.hidden = true;
+    motionButton.hidden = true;
     motionNotice.hidden = true;
   });
 
@@ -577,6 +616,8 @@
     sensorReceived = false;
     motionButton.setAttribute("aria-pressed", "false");
     motionLabel.textContent = "Enable motion";
+    motionButton.hidden = !mobileDevice || reducedMotion.matches;
+    skipMotion.hidden = true;
     motionRetry.hidden = true;
     showMotionStatus(message);
     resetLight();
@@ -589,6 +630,7 @@
     motionLabel.textContent = label;
     motionRetry.textContent = label;
     motionRetry.hidden = false;
+    motionButton.hidden = true;
   }
 
   function startSensor(type, alternative = null) {
@@ -599,6 +641,8 @@
     window.addEventListener(type, type === "deviceorientation" ? orientationChanged : accelerationChanged);
     motionButton.setAttribute("aria-pressed", "true");
     motionLabel.textContent = "Disable motion";
+    motionButton.hidden = true;
+    skipMotion.hidden = true;
     motionRetry.hidden = true;
     showMotionStatus(`Waiting for your phone's ${type === "devicemotion" ? "accelerometer" : "orientation sensor"}...`);
     sensorTimeout = window.setTimeout(() => {
@@ -608,7 +652,7 @@
       } else if (alternative) {
         offerSensorRetry(alternative, "No motion data received. Try the other sensor below; Safari may ask for permission again.");
       } else {
-        stopSensors("No motion data received. In Safari, check this website's Motion & Orientation permission, then reload and tap the phone icon. You can also drag the card.");
+        stopSensors("No motion data received. In Safari, check this website's Motion & Orientation permission, then reload and choose Enable motion. You can also drag the card.");
       }
     }, 5000);
   }
@@ -638,12 +682,16 @@
     const api = sensorApi(type);
     const version = ++requestVersion;
     requesting = true;
+    motionSkipped = false;
+    motionButton.hidden = true;
+    skipMotion.hidden = true;
     motionButton.disabled = true;
     motionRetry.disabled = true;
     showMotionStatus("Allow Motion & Orientation when Safari asks, then tilt your phone.");
     try {
       // iOS requires this call directly inside a user-initiated event.
-      const permission = typeof api.requestPermission === "function" ? await api.requestPermission() : "granted";
+      const permission = permittedSensors.has(type) || typeof api.requestPermission !== "function" ? "granted" : await api.requestPermission();
+      if (permission === "granted") permittedSensors.add(type);
       if (version !== requestVersion || reducedMotion.matches) return;
       if (permission !== "granted") {
         const message = "Motion permission wasn't granted. You can still drag the card to shift the light.";
@@ -668,10 +716,26 @@
       requesting = false;
       motionButton.disabled = false;
       motionRetry.disabled = false;
+      if (version !== requestVersion && permittedSensors.has(type)) startMobileMotion();
     }
   }
   motionButton.addEventListener("click", enableMotion);
   motionRetry.addEventListener("click", enableMotion);
+
+  function startMobileMotion() {
+    if (!mobileDevice || !pageActive || motionSkipped || reducedMotion.matches || document.hidden || requesting || sensorType) return;
+    const type = ["devicemotion", "deviceorientation"].find((candidate) => sensorApi(candidate));
+    if (window.isSecureContext && type && typeof sensorApi(type).requestPermission === "function" && !permittedSensors.has(type)) {
+      if (!motionPromptShown) {
+        motionPromptShown = true;
+        motionButton.hidden = false;
+        skipMotion.hidden = false;
+        showMotionStatus("Enable phone motion? Safari needs your permission before tilting can animate the background. Choose Enable motion, then Allow.");
+      }
+      return;
+    }
+    void enableMotion();
+  }
 
   function pointerMoved(event) {
     if (sensorType || (event.pointerType !== "mouse" && event.buttons === 0)) return;
@@ -697,16 +761,31 @@
   window.addEventListener("orientationchange", screenChanged);
   reducedMotion.addEventListener("change", () => {
     if (reducedMotion.matches) stopSensors("Animation is paused because Reduce Motion is enabled in your device settings.");
-    else showMotionStatus("Move your pointer or drag the card to shift the light.");
+    else {
+      showMotionStatus("Move your pointer or drag the card to shift the light.");
+      startMobileMotion();
+    }
   });
   document.addEventListener("visibilitychange", () => {
     // Safari permission UI can briefly hide the page; do not cancel its request.
-    if (document.hidden && !requesting && !pendingSensor) {
+    if (document.hidden && !requesting && !pendingSensor && (sensorType || frame !== null)) {
       stopSensors("Motion is off after leaving the page. Tap Enable motion to resume.");
     } else if (!document.hidden && pendingSensor) {
       startSensor(pendingSensor.type, pendingSensor.alternative);
+    } else if (!document.hidden) {
+      startMobileMotion();
     }
   });
-  window.addEventListener("pagehide", () => stopSensors("Motion is off. Tap Enable motion to resume."));
+  window.addEventListener("pagehide", () => {
+    pageActive = false;
+    if (sensorType || requesting || pendingSensor || frame !== null) {
+      stopSensors("Motion is off. Tap Enable motion to resume.");
+    }
+  });
+  window.addEventListener("pageshow", () => {
+    pageActive = true;
+    startMobileMotion();
+  });
   if (reducedMotion.matches) showMotionStatus("Animation is paused because Reduce Motion is enabled in your device settings.");
+  else startMobileMotion();
 })();

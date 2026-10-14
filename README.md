@@ -12,14 +12,16 @@ engines avoid indexing the page; it is not a password or privacy boundary.
 
 ## Using the card
 
-- Tap the phone icon to enable motion and grant permission when prompted.
-  On iPhone Safari this calls `DeviceMotionEvent.requestPermission()` directly
-  from the tap and uses accelerometer/gravity readings to drive the background.
-  HTTPS is required.
-- Use the three-dot menu to edit the top banner title, name, profile number, expiry date,
+- Motion starts automatically on touch/mobile devices when the sensor API does
+  not require permission. iPhone Safari shows an **Enable motion** prompt once
+  per visit; tap it and grant permission, or choose **Not now**. Safari requires
+  that tap before `DeviceMotionEvent.requestPermission()` can run. HTTPS is required.
+- Use the three-dot menu to edit the top banner title, name, licence number, card number, expiry date,
   birthdate, preview refreshed
-  date/time, Class and Conditions.
-- Choose a portrait, personal barcode/QR image, or your own/authorized logo
+  date/time, Class and Conditions. **Card labels** lets you rename Refreshed,
+  Licence Number, Card Number, Expiry, Date of birth, Class and Conditions.
+  Labels accept up to 48 characters and are saved/reset with the details.
+- Choose a portrait, personal barcode/QR image, or your own/authorized top or bottom logo
   from your phone's native photo-library/file chooser. Images are not uploaded.
 - PNG/WebP logo transparency is preserved. For an opaque logo, enable
   **Remove background colour**, choose a colour, and adjust **Tolerance**.
@@ -30,14 +32,22 @@ engines avoid indexing the page; it is not a password or privacy boundary.
 - Select **Remember on this device** to retain edits in this browser.
   **Reset details** clears the card's saved data and restores sample details.
 
+The default name is **Will Chin**, with a birthdate of **14 Oct 1991**.
+These defaults are public in the site source. Existing remembered edits are
+preserved; **Reset details** restores these defaults and removes saved edits.
+
 The refreshed label is manually chosen preview text, not a live server refresh.
 It displays the date/time as entered without timezone conversion.
-The profile number accepts up to 32 characters. Expiry is a calendar date,
+The licence number and card number each accept up to 32 characters. The former
+defaults to the label **Licence Number** (previously Profile number), keeping
+existing saved number values. Older saved cards receive the new label defaults,
+sample card number and empty bottom logo without losing other details.
+Expiry is a calendar date,
 shown as entered without timezone conversion; past and future dates are allowed.
 Older saved cards receive the sample number and expiry defaults without
 changing their existing details or images.
 The fixed top banner defaults to **Template License** and remains visible while
-scrolling, with the phone and edit controls beside it. Its editable title accepts
+scrolling, with the edit control beside it. Its editable title accepts
 up to 64 characters. Long titles use an ellipsis on small screens but remain
 complete in the page title and accessible heading; printing displays the full
 title. Older saved cards receive the default title without losing other edits.
@@ -50,12 +60,20 @@ position and shadow.
 The original floral silhouette uses broader side petals and wider tapered
 separations rather than rounded vein-like slits; it does not reproduce official
 licence security artwork.
+The lower section reuses the exact uploaded portrait data, rendered in grayscale
+at 24% opacity without creating or storing another image. Its reference ratios
+are 200/738 of the card width, 200:245 aspect ratio, 30/738 left offset and
+32/738 spacing below the class tiles. CSS scales these proportions with the card.
+The original pale accent footer is at least 44.85% of the card width
+high, with an editable Card Number and independent, transparency-preserving
+bottom logo. No official logo, address or signature is included.
 Do not use an official document's verification code in the personal-code slot.
 
 ### iPhone motion troubleshooting
 
-Open the new site directly in Safari and tap the phone icon, then **Allow**
-Motion & Orientation. The status panel appears above the bottom disclaimer:
+Open the new site directly in Safari and choose **Enable motion**, then **Allow**
+Motion & Orientation. If dismissed, reload to see the permission prompt again.
+The status panel appears above the bottom disclaimer:
 it distinguishes waiting for data, active accelerometer/orientation, denied
 permission and unavailable readings.
 
@@ -68,7 +86,9 @@ claim the sensor is active. Safari's temporary permission-UI visibility changes
 do not cancel activation; navigating away still cancels it.
 
 If Safari has remembered a denial, check the website's Motion & Orientation
-permission, reload, and tap the icon again. Reduce Motion pauses animation.
+permission, reload, and choose **Enable motion** again. Reduce Motion pauses animation.
+Returning to the page resumes mobile sensors without a second prompt when
+permission was granted during this visit; no permission request is made on load.
 Physical device readings cannot be proven by simulated test events and should
 be checked on the phone after deployment.
 

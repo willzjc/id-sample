@@ -20,7 +20,8 @@ function fixture(options = {}) {
   const imageMappings = [];
   const media = new window.EventTarget();
   Object.defineProperty(media, "matches", { get: () => reduced });
-  window.matchMedia = () => media;
+  window.matchMedia = (query) => query.includes("prefers-reduced-motion") ? media : { matches: options.mobile ?? false };
+  Object.defineProperty(window.navigator, "maxTouchPoints", { value: options.mobile ? 1 : 0 });
   Object.defineProperty(window, "isSecureContext", { value: options.secure ?? true });
   Object.defineProperty(document, "hidden", { get: () => hidden });
   const orientation = new window.EventTarget();
@@ -106,7 +107,7 @@ function fixture(options = {}) {
     async upload(kind, fileOptions = {}) {
       const file = new window.File([fileOptions.content ?? "test image"], "selected.png", { type: fileOptions.type ?? "image/png" });
       if (fileOptions.size) Object.defineProperty(file, "size", { value: fileOptions.size });
-      const input = get(`${kind}-input`);
+      const input = get(`${kind === "bottomLogo" ? "bottom-logo" : kind}-input`);
       Object.defineProperty(input, "files", { configurable: true, value: [file] });
       input.dispatchEvent(new window.Event("change", { bubbles: true }));
       for (let i = 0; i < 20 && get("save-details").disabled; i++) await new Promise(setImmediate);
@@ -139,11 +140,12 @@ test("standalone page stays visibly non-official, unindexed and free of remote a
   assert.equal(f.document.querySelector("main").lastElementChild, f.document.querySelector(".invalid-banner"));
   assert.match(f.document.querySelector(".card-footer").textContent, /Not valid identification/);
   assert.equal(f.document.querySelector('meta[name="robots"]').content, "noindex, nofollow");
-  assert.equal(f.get("display-name").textContent, "Alex Morgan");
+  assert.equal(f.get("display-name").textContent, "Will Chin");
   assert.equal(f.get("card-heading").textContent, "Template License");
-  assert.equal(f.get("display-birthdate").textContent, "02 Sept 1995");
+  assert.equal(f.get("display-birthdate").textContent, "14 Oct 1991");
   assert.match(f.document.querySelector(".pattern-tile").getAttribute("aria-label"), /Not a QR code/);
-  assert.equal(f.get("motion-button").closest(".card-header") !== null, true);
+  assert.equal(f.get("motion-button").closest(".card-header"), null);
+  assert.equal(f.get("motion-button").closest("#motion-notice") !== null, true);
   assert.equal(f.get("edit-button").closest(".card-header") !== null, true);
   assert.equal(f.document.querySelector(".card-header").closest(".digital-card"), null, "the fixed header stays outside the card's query container");
   assert.equal(f.document.querySelector(".card-header").parentElement, f.document.body, "the mobile overlay is outside all scrolling/layout containers");
@@ -169,8 +171,133 @@ test("the mobile header is a transform-free viewport overlay above the card", ()
   assert.equal(computed.right, "0px");
   assert.ok(computed.transform === "" || computed.transform === "none");
   assert.ok(Number(computed.zIndex) > Number(dom.window.getComputedStyle(dom.window.document.querySelector(".motion-notice")).zIndex));
-  assert.equal(new URL(dom.window.document.querySelector('link[rel="stylesheet"]').getAttribute("href"), "https://example.test/id-sample/").searchParams.get("v"), "mobile-header-2");
+  assert.equal(new URL(dom.window.document.querySelector('link[rel="stylesheet"]').getAttribute("href"), "https://example.test/id-sample/").searchParams.get("v"), "card-footer-3");
   dom.window.close();
+});
+
+test("personal defaults appear before scripts, populate the editor and return on reset without overwriting saved edits", () => {
+  const initial = new JSDOM(html);
+  assert.equal(initial.window.document.getElementById("display-name").textContent, "Will Chin");
+  assert.equal(initial.window.document.getElementById("display-birthdate").textContent, "14 Oct 1991");
+  initial.window.close();
+  const f = fixture();
+  f.get("edit-button").click();
+  assert.equal(f.get("name-input").value, "Will Chin");
+  assert.equal(f.get("birthdate-input").value, "1991-10-14");
+  f.get("details-dialog").close();
+  f.save("Saved Person", "2000-01-01", true);
+  const restored = fixture({ saved: f.window.localStorage.getItem(storageKey) });
+  assert.equal(restored.get("display-name").textContent, "Saved Person");
+  assert.equal(restored.get("display-birthdate").textContent, "01 Jan 2000");
+  restored.get("edit-button").click();
+  restored.get("reset-details").click();
+  assert.equal(restored.get("display-name").textContent, "Will Chin");
+  assert.equal(restored.get("display-birthdate").textContent, "14 Oct 1991");
+  assert.equal(restored.get("name-input").value, "Will Chin");
+  assert.equal(restored.get("birthdate-input").value, "1991-10-14");
+  assert.equal(restored.window.localStorage.getItem(storageKey), null);
+  f.close();
+  restored.close();
+});
+
+const cardLabels = [
+  ["refreshed", "refreshedLabel", "Refreshed"],
+  ["profile-number", "profileNumberLabel", "Licence Number"],
+  ["card-number", "cardNumberLabel", "Card Number"],
+  ["expiry", "expiryLabel", "Expiry"],
+  ["birthdate", "birthdateLabel", "Date of birth"],
+  ["class", "classLabel", "Class"],
+  ["conditions", "conditionsLabel", "Conditions"]
+];
+
+test("every card field label is editable as text, remembered and reset independently of its value", () => {
+  const f = fixture();
+  f.get("edit-button").click();
+  for (const [id, , defaultValue] of cardLabels) {
+    assert.equal(f.get(`${id}-label-input`).value, defaultValue);
+    f.get(`${id}-label-input`).value = `  <b>${id}</b>  `;
+  }
+  f.get("remember-input").checked = true;
+  f.submit();
+  const saved = JSON.parse(f.window.localStorage.getItem(storageKey));
+  const restored = fixture({ saved: JSON.stringify(saved) });
+  for (const [id, key] of cardLabels) {
+    assert.equal(saved[key], `<b>${id}</b>`);
+    assert.equal(restored.get(`display-${id}-label`).textContent, `<b>${id}</b>`);
+    assert.equal(restored.get(`display-${id}-label`).children.length, 0);
+  }
+  assert.equal(restored.get("display-profile-number").textContent, "SAMPLE-0001");
+  assert.equal(restored.get("display-card-number").textContent, "SAMPLE-0002");
+  assert.equal(restored.get("display-birthdate").textContent, "14 Oct 1991");
+  restored.get("edit-button").click();
+  restored.get("reset-details").click();
+  for (const [id, , defaultValue] of cardLabels) {
+    assert.equal(restored.get(`display-${id}-label`).textContent, defaultValue);
+    assert.equal(restored.get(`${id}-label-input`).value, defaultValue);
+  }
+  assert.equal(restored.window.localStorage.getItem(storageKey), null);
+  f.close();
+  restored.close();
+});
+
+test("legacy labels default to Licence Number without losing existing numbers or photos", () => {
+  const f = fixture({ saved: JSON.stringify({ name: "Saved Person", birthdate: "2000-01-01", profileNumber: "EXISTING-123", photo: "data:image/jpeg;base64,AA==" }) });
+  for (const [id, , defaultValue] of cardLabels) assert.equal(f.get(`display-${id}-label`).textContent, defaultValue);
+  assert.equal(f.get("display-profile-number").textContent, "EXISTING-123");
+  assert.equal(f.get("secondary-portrait-image").src, f.get("portrait-image").src);
+  assert.equal(f.get("bottom-logo-image").hidden, true);
+  assert.equal(f.warnings.length, 0);
+  f.close();
+});
+
+test("invalid card labels are reported, while valid 48-character labels are accepted", () => {
+  const f = fixture();
+  for (const [id] of cardLabels) {
+    f.get("edit-button").click();
+    const input = f.get(`${id}-label-input`);
+    for (const value of [" ", "A".repeat(49), "Text\u007f"]) {
+      input.value = value;
+      input.dispatchEvent(new f.window.Event("input"));
+      f.submit();
+      assert.notEqual(input.validationMessage, "");
+      assert.equal(f.get("details-dialog").open, true);
+    }
+    input.value = "A".repeat(48);
+    input.dispatchEvent(new f.window.Event("input"));
+    f.submit();
+    assert.equal(input.validationMessage, "");
+    assert.equal(f.get(`display-${id}-label`).textContent, "A".repeat(48));
+  }
+  f.close();
+});
+
+test("corrupt saved labels and card numbers surface errors instead of silently using defaults", () => {
+  for (const extra of [...cardLabels.map(([, key]) => ({ [key]: null })), { cardNumber: "" }, { cardNumber: "A".repeat(33) }]) {
+    const f = fixture({ saved: JSON.stringify({ name: "Saved Person", birthdate: "2000-01-01", ...extra }) });
+    assert.match(f.get("form-status").textContent, /could not be loaded/);
+    assert.equal(f.warnings.length, 1);
+    f.close();
+  }
+});
+
+test("card number is editable, remembered, validated and reset", () => {
+  const f = fixture();
+  f.get("edit-button").click();
+  f.get("card-number-input").value = " ";
+  f.submit();
+  assert.notEqual(f.get("card-number-input").validationMessage, "");
+  f.get("card-number-input").value = "  PERSONAL-2042  ";
+  f.get("card-number-input").dispatchEvent(new f.window.Event("input"));
+  f.get("remember-input").checked = true;
+  f.submit();
+  assert.equal(f.get("display-card-number").textContent, "PERSONAL-2042");
+  const restored = fixture({ saved: f.window.localStorage.getItem(storageKey) });
+  assert.equal(restored.get("display-card-number").textContent, "PERSONAL-2042");
+  restored.get("edit-button").click();
+  restored.get("reset-details").click();
+  assert.equal(restored.get("display-card-number").textContent, "SAMPLE-0002");
+  f.close();
+  restored.close();
 });
 
 test("name and birthdate are editable, trimmed, timezone-safe and not stored by default", () => {
@@ -254,7 +381,7 @@ test("corrupt new saved fields are reported instead of silently replaced with de
   for (const extra of [{ class: null }, { conditions: "" }, { refreshed: "2023-02-29T14:00" }]) {
     const f = fixture({ saved: JSON.stringify({ name: "Person", birthdate: "2000-01-01", ...extra }) });
     assert.match(f.get("form-status").textContent, /could not be loaded/);
-    assert.equal(f.get("display-name").textContent, "Alex Morgan");
+    assert.equal(f.get("display-name").textContent, "Will Chin");
     assert.equal(f.warnings.length, 1);
     f.close();
   }
@@ -266,7 +393,7 @@ test("Escape closes the editor without saving pending changes", () => {
   f.get("name-input").value = "Unsaved";
   f.get("details-dialog").dispatchEvent(new f.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
   assert.equal(f.get("details-dialog").open, false);
-  assert.equal(f.get("display-name").textContent, "Alex Morgan");
+  assert.equal(f.get("display-name").textContent, "Will Chin");
   f.close();
 });
 
@@ -280,7 +407,7 @@ test("remembered details survive a new visit and reset removes only the card's k
   second.get("edit-button").click();
   assert.equal(second.get("remember-input").checked, true);
   second.get("reset-details").click();
-  assert.equal(second.get("display-name").textContent, "Alex Morgan");
+  assert.equal(second.get("display-name").textContent, "Will Chin");
   assert.equal(second.window.localStorage.getItem(storageKey), null);
   assert.equal(second.window.localStorage.getItem("unrelated"), "keep");
   first.close();
@@ -299,19 +426,19 @@ test("invalid birthdays and empty names produce field errors without changing th
   const f = fixture();
   for (const date of ["2023-02-29", "2999-01-01", "1899-12-31", ""]) {
     f.save("Casey", date);
-    assert.equal(f.get("display-name").textContent, "Alex Morgan");
+    assert.equal(f.get("display-name").textContent, "Will Chin");
     assert.notEqual(f.get("birthdate-input").validationMessage, "");
   }
   f.save("   ", "2000-01-01");
   assert.notEqual(f.get("name-input").validationMessage, "");
-  assert.equal(f.get("display-name").textContent, "Alex Morgan");
+  assert.equal(f.get("display-name").textContent, "Will Chin");
   f.close();
 });
 
 test("corrupt or unavailable storage is reported, and failed saves do not claim persistence", () => {
   for (const saved of ["bad json", "{}", JSON.stringify({ name: "Person", birthdate: "2023-02-29" })]) {
     const f = fixture({ saved });
-    assert.equal(f.get("display-name").textContent, "Alex Morgan");
+    assert.equal(f.get("display-name").textContent, "Will Chin");
     assert.match(f.get("form-status").textContent, /could not be loaded/);
     assert.equal(f.warnings.length, 1);
     f.close();
@@ -324,6 +451,113 @@ test("corrupt or unavailable storage is reported, and failed saves do not claim 
   blocked.get("reset-details").click();
   assert.match(blocked.get("form-status").textContent, /could not be cleared/);
   blocked.close();
+});
+
+test("mobile accelerometer starts on load without permission and resumes after visibility changes", async () => {
+  const f = fixture({ mobile: true, acceleration: {} });
+  assert.equal(f.get("motion-button").hidden, true);
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 2.5, y: 0, z: 9.8 } });
+  f.flush();
+  assert.equal(f.get("digital-card").style.getPropertyValue("--tilt-x"), "0.5000");
+  f.hide();
+  assert.equal(f.frames.size, 0);
+  assert.equal(f.timers.size, 0);
+  f.show();
+  assert.equal(f.get("motion-button").getAttribute("aria-pressed"), "true");
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 2.5, y: 0, z: 9.8 } });
+  f.flush();
+  assert.equal(f.get("digital-card").style.getPropertyValue("--tilt-x"), "0.5000");
+  f.close();
+});
+
+test("iPhone prompts once per visit without requesting permission until Enable motion is tapped", async () => {
+  let requests = 0;
+  const f = fixture({ mobile: true, acceleration: { requestPermission: async () => { requests++; return "granted"; } } });
+  assert.equal(requests, 0);
+  assert.equal(f.get("motion-notice").hidden, false);
+  assert.equal(f.get("motion-button").hidden, false);
+  assert.equal(f.get("skip-motion").hidden, false);
+  await f.motion();
+  assert.equal(requests, 1);
+  assert.equal(f.get("motion-button").hidden, true);
+  assert.equal(f.get("skip-motion").hidden, true);
+  f.hide();
+  f.show();
+  assert.equal(requests, 1, "returning does not ask again during the same visit");
+  assert.equal(f.get("motion-button").getAttribute("aria-pressed"), "true");
+  f.close();
+});
+
+test("dismissing or skipping the motion prompt never requests permission or repeats it", () => {
+  for (const id of ["skip-motion", "dismiss-motion-notice"]) {
+    let requests = 0;
+    const f = fixture({ mobile: true, acceleration: { requestPermission: () => { requests++; return "granted"; } } });
+    f.get(id).click();
+    f.hide();
+    f.show();
+    assert.equal(f.get("motion-notice").hidden, true);
+    assert.equal(f.get("motion-button").hidden, true);
+    f.event("pageshow");
+    assert.equal(f.get("motion-notice").hidden, true);
+    f.reduce(true);
+    f.reduce(false);
+    assert.equal(requests, 0);
+    assert.equal(f.get("skip-motion").hidden, true);
+    assert.equal(f.get("motion-button").getAttribute("aria-pressed"), "false");
+    f.close();
+  }
+});
+
+test("mobile automation respects Reduce Motion and does not prompt or subscribe on desktop", () => {
+  const desktop = fixture({ acceleration: {} });
+  assert.equal(desktop.timers.size, 0);
+  assert.equal(desktop.get("motion-notice").hidden, true);
+  const reduced = fixture({ mobile: true, reduced: true, acceleration: {} });
+  assert.equal(reduced.timers.size, 0);
+  assert.equal(reduced.get("motion-button").hidden, true);
+  reduced.reduce(false);
+  assert.equal(reduced.get("motion-button").getAttribute("aria-pressed"), "true");
+  reduced.reduce(true);
+  assert.equal(reduced.get("motion-button").getAttribute("aria-pressed"), "false");
+  desktop.close();
+  reduced.close();
+});
+
+test("mobile automation reports insecure contexts and unavailable sensors explicitly", () => {
+  for (const [options, message] of [
+    [{ mobile: true }, /aren't supported/],
+    [{ mobile: true, secure: false, acceleration: {} }, /requires HTTPS/]
+  ]) {
+    const f = fixture(options);
+    assert.match(f.get("motion-status").textContent, message);
+    assert.equal(f.get("motion-button").getAttribute("aria-pressed"), "false");
+    f.close();
+  }
+});
+
+test("mobile motion waits for Reduce Motion to end or a page return after pending permission resolves", async () => {
+  for (const navigation of [false, true]) {
+    let resolve;
+    let requests = 0;
+    const f = fixture({ mobile: true, acceleration: { requestPermission: () => {
+      requests++;
+      return new Promise((done) => { resolve = done; });
+    } } });
+    f.get("motion-button").click();
+    if (navigation) f.event("pagehide");
+    else f.reduce(true);
+    resolve("granted");
+    await new Promise(setImmediate);
+    assert.equal(f.timers.size, 0);
+    assert.equal(f.get("motion-button").getAttribute("aria-pressed"), "false");
+    if (navigation) f.event("pageshow");
+    else f.reduce(false);
+    assert.equal(requests, 1);
+    assert.equal(f.get("motion-button").getAttribute("aria-pressed"), "true");
+    f.close();
+  }
 });
 
 test("permission is requested only on tap; orientation is calibrated, smoothed and bounded", async () => {
@@ -651,6 +885,94 @@ test("local photo and code are previewed, resized and applied only when saved", 
   assert.match(f.get("code-label").textContent, /PERSONAL CODE \/ NOT OFFICIAL/);
   assert.equal(f.window.localStorage.getItem(storageKey), null);
   assert.match(f.document.querySelector(".invalid-banner").textContent, /NOT VALID IDENTIFICATION/);
+  f.close();
+});
+
+test("lower portrait uses the identical photo and follows save, removal and reset", async () => {
+  const f = fixture();
+  assert.equal(f.get("secondary-portrait-image").hidden, true);
+  f.get("edit-button").click();
+  await f.upload("photo");
+  assert.equal(f.get("secondary-portrait-image").hidden, true);
+  f.get("remember-input").checked = true;
+  f.submit();
+  assert.equal(f.get("secondary-portrait-image").src, f.get("portrait-image").src);
+  assert.equal(f.get("secondary-portrait-image").parentElement.getAttribute("aria-hidden"), "true");
+  const restored = fixture({ saved: f.window.localStorage.getItem(storageKey) });
+  assert.equal(restored.get("secondary-portrait-image").hidden, false);
+  assert.equal(restored.get("secondary-portrait-image").src, restored.get("portrait-image").src);
+  restored.get("edit-button").click();
+  restored.get("remove-photo").click();
+  restored.submit();
+  assert.equal(restored.get("secondary-portrait-image").hidden, true);
+  assert.equal(restored.get("secondary-portrait-image").hasAttribute("src"), false);
+  f.get("edit-button").click();
+  f.get("reset-details").click();
+  assert.equal(f.get("secondary-portrait-image").hidden, true);
+  f.close();
+  restored.close();
+});
+
+test("bottom logo is independently uploaded as transparent PNG, remembered, removable and resettable", async () => {
+  const f = fixture();
+  f.get("edit-button").click();
+  await f.upload("bottomLogo");
+  assert.deepEqual(f.imageDraws, [{ width: 600, height: 450 }]);
+  assert.deepEqual(f.imageFormats, ["image/png"]);
+  assert.deepEqual(f.imageFills, []);
+  assert.equal(f.get("bottom-logo-preview").hidden, false);
+  assert.equal(f.get("bottom-logo-image").hidden, true);
+  f.get("remember-input").checked = true;
+  f.submit();
+  assert.equal(f.get("bottom-logo-image").hidden, false);
+  assert.equal(f.get("bottom-logo-placeholder").hidden, true);
+  assert.equal(f.get("logo-image").hidden, true, "bottom logo does not replace the top logo");
+  const restored = fixture({ saved: f.window.localStorage.getItem(storageKey) });
+  assert.equal(restored.get("bottom-logo-image").src, f.get("bottom-logo-image").src);
+  restored.get("edit-button").click();
+  restored.get("remove-bottom-logo").click();
+  restored.submit();
+  assert.equal(restored.get("bottom-logo-image").hidden, true);
+  assert.equal(restored.get("bottom-logo-image").hasAttribute("src"), false);
+  assert.equal(restored.get("bottom-logo-placeholder").hidden, false);
+  f.get("edit-button").click();
+  f.get("reset-details").click();
+  assert.equal(f.get("bottom-logo-image").hidden, true);
+  assert.equal(f.get("bottom-logo-preview").hidden, true);
+  f.close();
+  restored.close();
+});
+
+test("invalid bottom logos and unsafe saved logo URLs report errors without fetching remote images", async () => {
+  for (const options of [{ type: "image/svg+xml" }, { size: 5 * 1024 * 1024 + 1 }]) {
+    const f = fixture();
+    f.get("edit-button").click();
+    await f.upload("bottomLogo", options);
+    assert.match(f.get("bottom-logo-status").textContent, /Choose a JPG/);
+    assert.equal(f.get("bottom-logo-image").hidden, true);
+    f.close();
+  }
+  const f = fixture({ saved: JSON.stringify({ name: "Person", birthdate: "2000-01-01", bottomLogo: "https://example.test/private.png" }) });
+  assert.match(f.get("form-status").textContent, /could not be loaded/);
+  assert.equal(f.get("bottom-logo-image").hasAttribute("src"), false);
+  f.close();
+});
+
+test("pending bottom-logo processing blocks save and is discarded when the editor closes", async () => {
+  let resolve;
+  const f = fixture({ decodeGate: new Promise((done) => { resolve = done; }) });
+  f.get("edit-button").click();
+  const upload = f.upload("bottomLogo");
+  await new Promise(setImmediate);
+  assert.equal(f.get("save-details").disabled, true);
+  f.submit();
+  assert.match(f.get("form-status").textContent, /Wait for/);
+  f.get("close-dialog").click();
+  resolve();
+  await upload;
+  f.get("edit-button").click();
+  assert.equal(f.get("bottom-logo-preview").hidden, true);
+  assert.equal(f.get("bottom-logo-image").hidden, true);
   f.close();
 });
 

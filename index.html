@@ -8,15 +8,12 @@
   <meta name="theme-color" content="#111111">
   <title>Template License | Interactive prototype</title>
   <link rel="icon" href="./icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="./styles.css?v=mobile-header-2">
-  <script src="./app.js" defer></script>
+  <link rel="stylesheet" href="./styles.css?v=card-footer-3">
+  <script src="./app.js?v=editable-labels-auto-motion-3" defer></script>
 </head>
 <body>
   <header class="card-header">
-        <button id="motion-button" class="header-control" type="button" aria-pressed="false" title="Toggle phone motion">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 17h4M3 8l-2 4 2 4M21 8l2 4-2 4"/></svg>
-          <span id="motion-button-label" class="sr-only">Enable motion</span>
-        </button>
+        <span aria-hidden="true"></span>
         <h1 id="card-heading">Template License</h1>
         <button id="edit-button" class="header-control" type="button" aria-label="Edit details" title="Edit details and images">
           <svg class="menu-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>
@@ -51,15 +48,15 @@
               <span id="portrait-label">ILLUSTRATION</span>
             </div>
             <div class="refresh">
-              <span>Refreshed</span>
+              <span id="display-refreshed-label">Refreshed</span>
               <time id="display-refreshed"><span id="display-refreshed-date"></span><span id="display-refreshed-time"></span></time>
             </div>
           </div>
-          <h3 id="display-name" class="profile-name">Alex Morgan</h3>
+          <h3 id="display-name" class="profile-name">Will Chin</h3>
           <div class="identity-grid ruled">
             <dl class="profile-fields">
-              <div><dt>Profile number</dt><dd id="display-profile-number" class="profile-number">SAMPLE-0001</dd></div>
-              <div><dt>Expiry</dt><dd id="display-expiry">31 Dec 2030</dd></div>
+              <div><dt id="display-profile-number-label">Licence Number</dt><dd id="display-profile-number" class="profile-number">SAMPLE-0001</dd></div>
+              <div><dt id="display-expiry-label">Expiry</dt><dd id="display-expiry">31 Dec 2030</dd></div>
             </dl>
             <div class="pattern-tile" id="code-container" aria-label="Decorative pattern. Not a QR code.">
               <svg id="code-placeholder" viewBox="0 0 160 160" aria-hidden="true">
@@ -70,17 +67,30 @@
               <span id="code-label">DECORATIVE ONLY</span>
             </div>
           </div>
-          <dl class="birthdate ruled"><dt>Date of birth</dt><dd id="display-birthdate">02 Sep 1995</dd></dl>
+          <dl class="birthdate ruled"><dt id="display-birthdate-label">Date of birth</dt><dd id="display-birthdate">14 Oct 1991</dd></dl>
           <div class="detail-tiles">
-            <dl><dt>Class</dt><dd id="display-class">C</dd></dl>
-            <dl><dt>Conditions</dt><dd id="display-conditions">None</dd></dl>
+            <dl><dt id="display-class-label">Class</dt><dd id="display-class">C</dd></dl>
+            <dl><dt id="display-conditions-label">Conditions</dt><dd id="display-conditions">None</dd></dl>
+          </div>
+          <div class="secondary-portrait" aria-hidden="true">
+            <img id="secondary-portrait-image" alt="" hidden>
           </div>
           <footer class="card-footer"><span class="footer-dot" aria-hidden="true"></span> Not valid identification <span aria-hidden="true">/</span> Not official verification</footer>
         </div>
+        <section class="card-number-panel" aria-label="Card number and custom logo">
+          <dl>
+            <dt id="display-card-number-label">Card Number</dt>
+            <dd id="display-card-number">SAMPLE-0002</dd>
+          </dl>
+          <div class="bottom-logo">
+            <span id="bottom-logo-placeholder" aria-label="Personal logo placeholder">iD</span>
+            <img id="bottom-logo-image" alt="Custom bottom logo" hidden>
+          </div>
+        </section>
       </div>
     </article>
     <aside class="card-help" aria-label="Card controls">
-      <p class="interaction-help">Phone icon: enable tilt. Three dots: edit details and images.</p>
+      <p class="interaction-help">Tilt your phone to shift the background. Three dots: edit details, labels and images.</p>
       <p class="privacy-note">Personal design prototype. No server uploads or official verification.</p>
     </aside>
     <footer class="invalid-banner" aria-label="Identification disclaimer">NOT VALID IDENTIFICATION</footer>
@@ -88,6 +98,8 @@
   <aside id="motion-notice" class="motion-notice" aria-label="Phone motion status" hidden>
     <div class="motion-notice-body">
       <p id="motion-status" class="status" role="status">Move your pointer or drag the card to shift the light.</p>
+      <button id="motion-button" class="button primary" type="button" aria-pressed="false" hidden><span id="motion-button-label">Enable motion</span></button>
+      <button id="skip-motion" class="button secondary" type="button" hidden>Not now</button>
       <button id="motion-retry" class="button secondary" type="button" hidden>Try orientation</button>
     </div>
     <button id="dismiss-motion-notice" class="close-button" type="button" aria-label="Dismiss motion status">&times;</button>
@@ -101,11 +113,13 @@
       <input id="banner-title-input" name="bannerTitle" type="text" required maxlength="64" autocomplete="off" placeholder="Template License" aria-describedby="banner-title-help">
       <p id="banner-title-help" class="field-help">The banner stays at the top while scrolling. Long titles are shown with an ellipsis on small screens.</p>
       <label for="name-input">Display name</label>
-      <input id="name-input" name="name" type="text" required maxlength="64" autocomplete="off" placeholder="Alex Morgan">
+      <input id="name-input" name="name" type="text" required maxlength="64" autocomplete="off" placeholder="Will Chin">
       <label for="birthdate-input">Date of birth</label>
       <input id="birthdate-input" name="birthdate" type="date" required min="1900-01-01" autocomplete="off">
-      <label for="profile-number-input">Profile number</label>
+      <label for="profile-number-input">Licence Number</label>
       <input id="profile-number-input" name="profileNumber" type="text" required maxlength="32" autocomplete="off" placeholder="SAMPLE-0001">
+      <label for="card-number-input">Card Number</label>
+      <input id="card-number-input" name="cardNumber" type="text" required maxlength="32" autocomplete="off" placeholder="SAMPLE-0002">
       <label for="expiry-input">Expiry date</label>
       <input id="expiry-input" name="expiry" type="date" required min="1900-01-01" max="9999-12-31" autocomplete="off">
       <label for="refreshed-input">Refreshed date and time</label>
@@ -115,6 +129,24 @@
       <input id="class-input" name="class" type="text" required maxlength="32" autocomplete="off" placeholder="C">
       <label for="conditions-input">Conditions</label>
       <input id="conditions-input" name="conditions" type="text" required maxlength="160" autocomplete="off" placeholder="None">
+      <fieldset class="label-fields">
+        <legend>Card labels</legend>
+        <p class="field-help">Rename the field labels shown on the card. Each label accepts up to 48 characters.</p>
+        <label for="refreshed-label-input">Refreshed label</label>
+        <input id="refreshed-label-input" name="refreshedLabel" type="text" required maxlength="48" autocomplete="off" placeholder="Refreshed">
+        <label for="profile-number-label-input">Licence number label</label>
+        <input id="profile-number-label-input" name="profileNumberLabel" type="text" required maxlength="48" autocomplete="off" placeholder="Licence Number">
+        <label for="card-number-label-input">Card number label</label>
+        <input id="card-number-label-input" name="cardNumberLabel" type="text" required maxlength="48" autocomplete="off" placeholder="Card Number">
+        <label for="expiry-label-input">Expiry label</label>
+        <input id="expiry-label-input" name="expiryLabel" type="text" required maxlength="48" autocomplete="off" placeholder="Expiry">
+        <label for="birthdate-label-input">Date of birth label</label>
+        <input id="birthdate-label-input" name="birthdateLabel" type="text" required maxlength="48" autocomplete="off" placeholder="Date of birth">
+        <label for="class-label-input">Class label</label>
+        <input id="class-label-input" name="classLabel" type="text" required maxlength="48" autocomplete="off" placeholder="Class">
+        <label for="conditions-label-input">Conditions label</label>
+        <input id="conditions-label-input" name="conditionsLabel" type="text" required maxlength="48" autocomplete="off" placeholder="Conditions">
+      </fieldset>
       <div class="image-field">
         <div class="image-label"><label for="logo-input">Custom logo</label><button id="remove-logo" class="remove-image" type="button" hidden>Remove logo</button></div>
         <input id="logo-input" type="file" accept="image/png,image/webp,image/jpeg" aria-describedby="logo-help logo-status">
@@ -143,6 +175,13 @@
         <div class="image-preview" id="code-preview" hidden><img id="code-preview-image" alt="Personal code preview"></div>
         <p class="field-help" id="code-help">Tap Choose file to select a barcode or QR screenshot from your phone's photo library or files. Use a personal code, such as a profile link, not official ID verification. JPG, PNG or WebP, up to 5 MB.</p>
         <p id="code-status" class="image-status" role="status"></p>
+      </div>
+      <div class="image-field">
+        <div class="image-label"><label for="bottom-logo-input">Bottom custom logo</label><button id="remove-bottom-logo" class="remove-image" type="button" hidden>Remove bottom logo</button></div>
+        <input id="bottom-logo-input" type="file" accept="image/png,image/webp,image/jpeg" aria-describedby="bottom-logo-help bottom-logo-status">
+        <div class="image-preview" id="bottom-logo-preview" hidden><img id="bottom-logo-preview-image" alt="Bottom logo preview"></div>
+        <p class="field-help" id="bottom-logo-help">Choose your own or an authorized bottom logo from your phone. Independent of the top logo. PNG and WebP transparency is preserved. Up to 5 MB; nothing is uploaded.</p>
+        <p id="bottom-logo-status" class="image-status" role="status"></p>
       </div>
       <label class="checkbox-label" for="remember-input"><input id="remember-input" type="checkbox"> Remember on this device</label>
       <p class="field-help">Leave unchecked on a shared phone. Remembered details and images are stored in this browser, not in the website.</p>
