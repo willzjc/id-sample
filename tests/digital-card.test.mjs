@@ -133,6 +133,9 @@ function fixture(options = {}) {
 test("standalone page stays visibly non-official, unindexed and free of remote assets", () => {
   const f = fixture();
   assert.match(f.document.querySelector(".invalid-banner").textContent, /NOT VALID IDENTIFICATION/);
+  assert.equal(f.document.querySelector(".invalid-banner").tagName, "FOOTER");
+  assert.equal(f.document.querySelector(".invalid-banner").closest(".digital-card"), null);
+  assert.equal(f.document.querySelector("main").lastElementChild, f.document.querySelector(".invalid-banner"));
   assert.match(f.document.querySelector(".card-footer").textContent, /Not valid identification/);
   assert.equal(f.document.querySelector('meta[name="robots"]').content, "noindex, nofollow");
   assert.equal(f.get("display-name").textContent, "Alex Morgan");

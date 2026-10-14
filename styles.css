@@ -9,7 +9,7 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; }
+body { margin: 0; padding-bottom: calc(44px + env(safe-area-inset-bottom)); }
 button, input { font: inherit; }
 button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 button:disabled { cursor: wait; opacity: .6; }
@@ -60,7 +60,7 @@ button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke
 .header-control .menu-icon circle { fill: currentColor; stroke: none; }
 .header-control:hover { background: #242823; }
 .header-control[aria-pressed="true"] { color: var(--accent); background: #252c18; }
-.invalid-banner { padding: 8px 12px; color: #222717; background: var(--accent); font-size: 10px; letter-spacing: 1.8px; font-weight: 750; text-align: center; }
+.invalid-banner { position: fixed; z-index: 30; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; min-height: 40px; padding: 12px 12px calc(12px + env(safe-area-inset-bottom)); border-top: 1px solid #454c34; color: var(--accent); background: #1c2018; font-size: 11px; line-height: 16px; letter-spacing: 1px; font-weight: 650; text-align: center; }
 .card-body { position: relative; overflow: hidden; }
 .card-content { position: relative; padding: 4.2cqw 4.2cqw 0; }
 .portrait-row { display: grid; grid-template-columns: minmax(0, 1fr) 42.5% minmax(0, 1fr); align-items: start; gap: 10px; }
@@ -156,8 +156,10 @@ input[type="file"]::file-selector-button { min-height: 48px; margin-right: 10px;
 }
 
 @media print {
+  body { padding-bottom: 0; }
   .card-help, .header-control, dialog { display: none; }
   .workspace { display: block; padding: 0; }
   .card-header { display: block; min-height: auto; padding: 16px; }
   .digital-card { width: 430px; box-shadow: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .invalid-banner { position: static; transform: none; width: 430px; max-width: 100%; margin-top: 12px; padding: 12px; color: #111; background: #fff; border-color: #777; }
 }
