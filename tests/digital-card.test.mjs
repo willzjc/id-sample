@@ -99,6 +99,7 @@ function fixture(options = {}) {
     },
     reduce(value = true) { reduced = value; media.dispatchEvent(new window.Event("change")); },
     hide() { hidden = true; document.dispatchEvent(new window.Event("visibilitychange")); },
+    show() { hidden = false; document.dispatchEvent(new window.Event("visibilitychange")); },
     submit() {
       get("details-form").dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
     },
@@ -139,11 +140,14 @@ test("standalone page stays visibly non-official, unindexed and free of remote a
   assert.match(f.document.querySelector(".card-footer").textContent, /Not valid identification/);
   assert.equal(f.document.querySelector('meta[name="robots"]').content, "noindex, nofollow");
   assert.equal(f.get("display-name").textContent, "Alex Morgan");
+  assert.equal(f.get("card-heading").textContent, "Template License");
   assert.equal(f.get("display-birthdate").textContent, "02 Sept 1995");
   assert.match(f.document.querySelector(".pattern-tile").getAttribute("aria-label"), /Not a QR code/);
   assert.equal(f.get("motion-button").closest(".card-header") !== null, true);
   assert.equal(f.get("edit-button").closest(".card-header") !== null, true);
+  assert.equal(f.document.querySelector(".card-header").closest(".digital-card"), null, "the fixed header stays outside the card's query container");
   assert.equal(f.document.querySelector(".introduction"), null);
+  assert.equal(f.document.querySelector(".refresh-note"), null);
   for (const element of f.document.querySelectorAll("[src], [href]")) {
     assert.ok(!/^(https?:)?\/\//.test(element.getAttribute("src") ?? element.getAttribute("href")));
   }
@@ -356,12 +360,11 @@ test("angle wrap takes the shortest path and invalid sensor values are ignored",
   f.close();
 });
 
-test("accelerometer fallback runs when orientation data is unavailable", async () => {
+test("accelerometer is preferred when both sensor APIs exist", async () => {
   const f = fixture({ orientation: {}, acceleration: {} });
   await f.motion();
-  f.timeout();
-  f.event("devicemotion", { accelerationIncludingGravity: { x: 0, y: 9.8 } });
-  f.event("devicemotion", { accelerationIncludingGravity: { x: 2.5, y: 9.8 } });
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 0, y: 9.8, z: 0 } });
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 2.5, y: 9.8, z: 0 } });
   f.flush();
   assert.equal(f.get("digital-card").style.getPropertyValue("--tilt-x"), "0.5000");
   assert.match(f.get("motion-status").textContent, /Motion is on/);
@@ -375,8 +378,8 @@ test("accelerometer-only devices request their own permission", async () => {
   assert.equal(requests, 1);
   f.event("devicemotion", { accelerationIncludingGravity: null });
   assert.equal(f.frames.size, 0);
-  f.event("devicemotion", { accelerationIncludingGravity: { x: 0, y: 0 } });
-  f.event("devicemotion", { accelerationIncludingGravity: { x: 0, y: 5 } });
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 0, y: 5, z: 9.8 } });
   f.flush();
   assert.equal(f.get("digital-card").style.getPropertyValue("--tilt-y"), "1.0000");
   f.close();
@@ -445,6 +448,168 @@ test("initial reduced-motion preference blocks permission requests", async () =>
   await f.motion();
   assert.equal(requests, 0);
   assert.match(f.get("motion-status").textContent, /Reduce Motion/);
+  f.close();
+});
+
+test("iPhone requests accelerometer permission from the tap and retries orientation only on another tap", async () => {
+  let motionRequests = 0;
+  let orientationRequests = 0;
+  const f = fixture({
+    acceleration: { requestPermission: async () => { motionRequests++; return "granted"; } },
+    orientation: { requestPermission: async () => { orientationRequests++; return "granted"; } }
+  });
+  assert.equal(motionRequests, 0);
+  f.get("motion-button").click();
+  assert.equal(motionRequests, 1);
+  assert.equal(orientationRequests, 0);
+  await new Promise(setImmediate);
+  f.timeout();
+  assert.equal(orientationRequests, 0, "timeout never triggers a gesture-restricted permission request");
+  assert.equal(f.get("motion-retry").hidden, false);
+  assert.equal(f.get("motion-notice").hidden, false);
+  f.get("motion-retry").click();
+  await new Promise(setImmediate);
+  assert.equal(orientationRequests, 1);
+  f.event("deviceorientation", { gamma: 0, beta: 0 });
+  f.event("deviceorientation", { gamma: 14, beta: 0 });
+  f.flush();
+  assert.equal(f.get("digital-card").style.getPropertyValue("--tilt-x"), "0.5000");
+  f.close();
+});
+
+test("denied iPhone accelerometer permission offers a visible, user-initiated orientation retry", async () => {
+  let orientationRequests = 0;
+  const f = fixture({
+    acceleration: { requestPermission: async () => "denied" },
+    orientation: { requestPermission: async () => { orientationRequests++; return "granted"; } }
+  });
+  await f.motion();
+  assert.match(f.get("motion-status").textContent, /wasn't granted/);
+  assert.equal(f.get("motion-notice").hidden, false);
+  assert.equal(f.get("motion-retry").hidden, false);
+  assert.equal(orientationRequests, 0);
+  f.get("motion-retry").click();
+  assert.equal(orientationRequests, 1);
+  await new Promise(setImmediate);
+  assert.equal(f.get("motion-button").getAttribute("aria-pressed"), "true");
+  f.close();
+});
+
+test("orientation fallback is automatic only when no permission prompt is needed", async () => {
+  const f = fixture({ acceleration: {}, orientation: {} });
+  await f.motion();
+  f.timeout();
+  f.event("deviceorientation", { gamma: 0, beta: 0 });
+  f.event("deviceorientation", { gamma: 14, beta: 0 });
+  f.flush();
+  assert.equal(f.get("digital-card").style.getPropertyValue("--tilt-x"), "0.5000");
+  assert.equal(f.get("motion-retry").hidden, true);
+  f.close();
+});
+
+test("temporary iPhone permission visibility changes do not cancel granted activation", async () => {
+  let grant;
+  const f = fixture({ acceleration: { requestPermission: () => new Promise((resolve) => { grant = resolve; }) } });
+  f.get("motion-button").click();
+  f.hide();
+  grant("granted");
+  await new Promise(setImmediate);
+  assert.match(f.get("motion-status").textContent, /Return to this page/);
+  f.show();
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 0, y: 0, z: 9.8 } });
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 2.5, y: 0, z: 9.8 } });
+  f.flush();
+  assert.equal(f.get("digital-card").style.getPropertyValue("--tilt-x"), "0.5000");
+  f.hide();
+  assert.equal(f.get("motion-button").getAttribute("aria-pressed"), "false");
+  f.close();
+});
+
+test("navigation cancels a pending permission request and zero/invalid gravity does not claim success", async () => {
+  let grant;
+  const pending = fixture({ acceleration: { requestPermission: () => new Promise((resolve) => { grant = resolve; }) } });
+  pending.get("motion-button").click();
+  pending.event("pagehide");
+  grant("granted");
+  await new Promise(setImmediate);
+  assert.equal(pending.get("motion-button").getAttribute("aria-pressed"), "false");
+  pending.close();
+  const f = fixture({ acceleration: {} });
+  await f.motion();
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 0, y: 0, z: 0 } });
+  f.event("devicemotion", { accelerationIncludingGravity: { x: 0, y: 0, z: null } });
+  assert.equal(f.frames.size, 0);
+  assert.match(f.get("motion-status").textContent, /Waiting/);
+  f.get("dismiss-motion-notice").click();
+  assert.equal(f.get("motion-notice").hidden, true);
+  f.close();
+});
+
+test("profile number and expiry are editable, remembered and reset to sample values", () => {
+  const f = fixture();
+  f.get("edit-button").click();
+  f.get("profile-number-input").value = "  SAMPLE-2042  ";
+  f.get("expiry-input").value = "2042-06-25";
+  f.get("remember-input").checked = true;
+  f.submit();
+  assert.equal(f.get("display-profile-number").textContent, "SAMPLE-2042");
+  assert.equal(f.get("display-expiry").textContent, "25 June 2042");
+  const restored = fixture({ saved: f.window.localStorage.getItem(storageKey) });
+  restored.get("edit-button").click();
+  assert.equal(restored.get("profile-number-input").value, "SAMPLE-2042");
+  assert.equal(restored.get("expiry-input").value, "2042-06-25");
+  restored.get("reset-details").click();
+  assert.equal(restored.get("display-profile-number").textContent, "SAMPLE-0001");
+  assert.equal(restored.get("display-expiry").textContent, "31 Dec 2030");
+  f.close();
+  restored.close();
+});
+
+test("the fixed banner title is editable, rendered as text, remembered and reset", () => {
+  const f = fixture();
+  f.get("edit-button").click();
+  f.get("banner-title-input").value = "  My Template  ";
+  f.get("remember-input").checked = true;
+  f.submit();
+  assert.equal(f.get("card-heading").textContent, "My Template");
+  assert.equal(f.document.title, "My Template | Interactive prototype");
+  const restored = fixture({ saved: f.window.localStorage.getItem(storageKey) });
+  restored.get("edit-button").click();
+  assert.equal(restored.get("banner-title-input").value, "My Template");
+  restored.get("banner-title-input").value = " ";
+  restored.submit();
+  assert.notEqual(restored.get("banner-title-input").validationMessage, "");
+  restored.get("banner-title-input").value = "<b>My title</b>";
+  restored.get("banner-title-input").dispatchEvent(new restored.window.Event("input"));
+  restored.submit();
+  assert.equal(restored.get("card-heading").children.length, 0);
+  assert.equal(restored.get("card-heading").textContent, "<b>My title</b>");
+  restored.get("edit-button").click();
+  restored.get("reset-details").click();
+  assert.equal(restored.get("card-heading").textContent, "Template License");
+  f.close();
+  restored.close();
+});
+
+test("invalid expiry dates and blank profile numbers report field errors without changing the card", () => {
+  const f = fixture();
+  for (const date of ["2023-02-29", "1899-12-31", ""]) {
+    f.get("edit-button").click();
+    f.get("expiry-input").value = date;
+    f.submit();
+    assert.notEqual(f.get("expiry-input").validationMessage, "");
+    assert.equal(f.get("display-expiry").textContent, "31 Dec 2030");
+    f.get("close-dialog").click();
+  }
+  f.get("edit-button").click();
+  f.get("profile-number-input").value = " ";
+  f.submit();
+  assert.notEqual(f.get("profile-number-input").validationMessage, "");
+  f.get("profile-number-input").value = "PAST-SAMPLE";
+  f.get("profile-number-input").dispatchEvent(new f.window.Event("input"));
+  f.get("expiry-input").value = "2000-02-29";
+  f.submit();
+  assert.equal(f.get("display-expiry").textContent, "29 Feb 2000");
   f.close();
 });
 

@@ -23,7 +23,7 @@ button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke
   flex-direction: column;
   align-items: center;
   min-height: 100svh;
-  padding: 36px 20px;
+  padding: 0 20px 36px;
   background: #111111;
 }
 .eyebrow { color: var(--muted); font-size: 10px; font-weight: 650; letter-spacing: 2px; }
@@ -36,6 +36,11 @@ button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke
 .interaction-help { margin: 0; color: #b0b4aa; font-size: 11px; line-height: 1.6; }
 .status { margin: 9px 0; color: var(--muted); font-size: 11px; line-height: 1.6; }
 .privacy-note { margin: 0; color: #7f8578; font-size: 10px; line-height: 1.6; }
+.motion-notice { position: fixed; z-index: 40; bottom: calc(52px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); display: flex; align-items: start; gap: 8px; width: calc(100% - 24px); max-width: 406px; padding: 12px; border: 1px solid #454c34; border-radius: 10px; background: #1c2018; box-shadow: 0 8px 30px #0006; }
+.motion-notice-body { flex: 1; min-width: 0; }
+.motion-notice .status { margin: 0; color: #e0e4d7; }
+.motion-notice .close-button { flex: 0 0 44px; margin: -8px -8px -8px 0; }
+.motion-notice .button { margin-top: 10px; }
 
 .digital-card {
   --tilt-x: 0;
@@ -47,14 +52,15 @@ button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke
   overflow: hidden;
   width: 100%;
   max-width: 430px;
+  padding-top: calc(65px + env(safe-area-inset-top));
   container-type: inline-size;
   background: #111111;
   border: 1px solid #282a24;
   border-radius: 16px;
   box-shadow: 0 24px 75px #0007;
 }
-.card-header { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; min-height: 64px; padding: 10px 10px; background: #111111; }
-.card-header h1 { margin: 0; font-size: 21px; font-weight: 650; text-align: center; letter-spacing: -.3px; }
+.card-header { position: fixed; z-index: 25; top: 0; left: 50%; transform: translateX(-50%); display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; width: 100%; max-width: 430px; min-height: 64px; padding: calc(10px + env(safe-area-inset-top)) 10px 10px; border-bottom: 1px solid #282a24; background: #111111; }
+.card-header h1 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: clamp(16px, 4.4vw, 21px); line-height: 1.2; font-weight: 650; text-align: center; letter-spacing: -.3px; }
 .header-control { display: grid; place-items: center; width: 44px; height: 44px; padding: 8px; border: 0; color: #b8dce8; background: transparent; border-radius: 6px; }
 .header-control svg { width: 24px; height: 24px; }
 .header-control .menu-icon circle { fill: currentColor; stroke: none; }
@@ -75,7 +81,6 @@ button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke
 .refresh { display: grid; justify-items: end; gap: 9px; padding-top: 5px; text-align: right; }
 .refresh > span:first-child { color: #d3d6ce; font-size: 14px; font-weight: 600; }
 .refresh time { display: grid; gap: 4px; font-size: clamp(10px, 3cqw, 13px); line-height: 1.4; font-weight: 650; }
-.refresh-note { font-size: 7px; letter-spacing: .5px; color: #adb5a2; }
 .profile-name { margin: 12px 0 6.5cqw; font-size: clamp(23px, 6.5cqw, 28px); line-height: 1.2; font-weight: 750; text-align: center; letter-spacing: -.5px; overflow-wrap: anywhere; }
 .ruled { border-top: 1px solid #b9beb34d; }
 .identity-grid { display: grid; grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr); gap: 5cqw; padding: 6cqw 0; }
@@ -142,7 +147,6 @@ input[type="file"]::file-selector-button { min-height: 48px; margin-right: 10px;
 @media (max-width: 480px) {
   .workspace { padding: 0; }
   .digital-card { border: 0; border-radius: 0; box-shadow: none; }
-  .card-header { padding-top: max(10px, env(safe-area-inset-top)); }
   .button { padding-inline: 10px; font-size: 12px; }
 }
 
@@ -157,9 +161,10 @@ input[type="file"]::file-selector-button { min-height: 48px; margin-right: 10px;
 
 @media print {
   body { padding-bottom: 0; }
-  .card-help, .header-control, dialog { display: none; }
+  .card-help, .header-control, .motion-notice, dialog { display: none; }
   .workspace { display: block; padding: 0; }
-  .card-header { display: block; min-height: auto; padding: 16px; }
-  .digital-card { width: 430px; box-shadow: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .card-header { position: static; transform: none; display: block; min-height: auto; padding: 16px; }
+  .card-header h1 { white-space: normal; overflow: visible; }
+  .digital-card { width: 430px; padding-top: 0; box-shadow: none; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .invalid-banner { position: static; transform: none; width: 430px; max-width: 100%; margin-top: 12px; padding: 12px; color: #111; background: #fff; border-color: #777; }
 }

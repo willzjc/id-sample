@@ -13,9 +13,11 @@ engines avoid indexing the page; it is not a password or privacy boundary.
 ## Using the card
 
 - Tap the phone icon to enable motion and grant permission when prompted.
-  HTTPS is required. Orientation sensors drive the holographic background,
-  with accelerometer/gravity events as a fallback where supported.
-- Use the three-dot menu to edit the name, birthdate, preview refreshed
+  On iPhone Safari this calls `DeviceMotionEvent.requestPermission()` directly
+  from the tap and uses accelerometer/gravity readings to drive the background.
+  HTTPS is required.
+- Use the three-dot menu to edit the top banner title, name, profile number, expiry date,
+  birthdate, preview refreshed
   date/time, Class and Conditions.
 - Choose a portrait, personal barcode/QR image, or your own/authorized logo
   from your phone's native photo-library/file chooser. Images are not uploaded.
@@ -30,7 +32,39 @@ engines avoid indexing the page; it is not a password or privacy boundary.
 
 The refreshed label is manually chosen preview text, not a live server refresh.
 It displays the date/time as entered without timezone conversion.
+The profile number accepts up to 32 characters. Expiry is a calendar date,
+shown as entered without timezone conversion; past and future dates are allowed.
+Older saved cards receive the sample number and expiry defaults without
+changing their existing details or images.
+The fixed top banner defaults to **Template License** and remains visible while
+scrolling, with the phone and edit controls beside it. Its editable title accepts
+up to 64 characters. Long titles use an ellipsis on small screens but remain
+complete in the page title and accessible heading; printing displays the full
+title. Older saved cards receive the default title without losing other edits.
+The original floral silhouette uses broader side petals and wider tapered
+separations rather than rounded vein-like slits; it does not reproduce official
+licence security artwork.
 Do not use an official document's verification code in the personal-code slot.
+
+### iPhone motion troubleshooting
+
+Open the new site directly in Safari and tap the phone icon, then **Allow**
+Motion & Orientation. The status panel appears above the bottom disclaimer:
+it distinguishes waiting for data, active accelerometer/orientation, denied
+permission and unavailable readings.
+
+Accelerometer readings are preferred. If no usable data arrives within five
+seconds, the app tries orientation automatically only when no additional
+permission prompt is required. Otherwise **Try orientation** makes a fresh
+user-initiated request, as required by Safari. Denied primary permission also
+offers this alternative where supported. Zero/invalid gravity samples do not
+claim the sensor is active. Safari's temporary permission-UI visibility changes
+do not cancel activation; navigating away still cancels it.
+
+If Safari has remembered a denial, check the website's Motion & Orientation
+permission, reload, and tap the icon again. Reduce Motion pauses animation.
+Physical device readings cannot be proven by simulated test events and should
+be checked on the phone after deployment.
 
 ## Images and privacy
 

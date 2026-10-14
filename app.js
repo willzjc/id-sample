@@ -6,10 +6,15 @@
   const motionButton = document.getElementById("motion-button");
   const motionLabel = document.getElementById("motion-button-label");
   const motionStatus = document.getElementById("motion-status");
+  const motionNotice = document.getElementById("motion-notice");
+  const motionRetry = document.getElementById("motion-retry");
   const dialog = document.getElementById("details-dialog");
   const form = document.getElementById("details-form");
   const nameInput = document.getElementById("name-input");
+  const bannerTitleInput = document.getElementById("banner-title-input");
   const birthdateInput = document.getElementById("birthdate-input");
+  const profileNumberInput = document.getElementById("profile-number-input");
+  const expiryInput = document.getElementById("expiry-input");
   const refreshedInput = document.getElementById("refreshed-input");
   const classInput = document.getElementById("class-input");
   const conditionsInput = document.getElementById("conditions-input");
@@ -26,8 +31,11 @@
   const today = new Date();
   const maxDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const defaults = {
+    bannerTitle: "Template License",
     name: "Alex Morgan",
     birthdate: "1995-09-02",
+    profileNumber: "SAMPLE-0001",
+    expiry: "2030-12-31",
     refreshed: `${maxDate}T${String(today.getHours()).padStart(2, "0")}:${String(today.getMinutes()).padStart(2, "0")}`,
     class: "C",
     conditions: "None",
@@ -51,6 +59,8 @@
   const imageVersions = { photo: 0, code: 0, logo: 0 };
   const imageBusy = { photo: false, code: false, logo: false };
   let sensorType = null;
+  let retrySensorType = null;
+  let pendingSensor = null;
   let baseline = null;
   let sensorTimeout = null;
   let sensorReceived = false;
@@ -62,7 +72,9 @@
 
   const clamp = (value) => Math.max(-1, Math.min(1, value));
   const textFields = [
+    { key: "bannerTitle", input: bannerTitleInput, limit: 64, label: "banner title" },
     { key: "name", input: nameInput, limit: 64, label: "display name" },
+    { key: "profileNumber", input: profileNumberInput, limit: 32, label: "profile number" },
     { key: "class", input: classInput, limit: 32, label: "class" },
     { key: "conditions", input: conditionsInput, limit: 160, label: "conditions (use None when there are no conditions)" }
   ];
@@ -75,6 +87,12 @@
     if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) || value < "1900-01-01T00:00") return false;
     const date = new Date(`${value}:00Z`);
     return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 16) === value;
+  }
+
+  function validCalendarDate(value, maximum) {
+    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value) || value < "1900-01-01" || value > maximum) return false;
+    const date = new Date(`${value}T00:00:00Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
   }
 
   function validImage(value) {
@@ -90,14 +108,17 @@
     if (!textFields.every((field) => validText(value[field.key], field.limit)) || !validRefreshed(value.refreshed)) return false;
     if (!imageKinds.every((kind) => validImage(value[kind]))) return false;
     if (!validImage(value.logoSource) || !validLogoTransparency(value.logoTransparency)) return false;
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(value.birthdate) || value.birthdate < "1900-01-01" || value.birthdate > maxDate) return false;
-    const date = new Date(`${value.birthdate}T00:00:00Z`);
-    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value.birthdate;
+    return validCalendarDate(value.birthdate, maxDate) && validCalendarDate(value.expiry, "9999-12-31");
   }
 
   function renderDetails() {
+    document.getElementById("card-heading").textContent = details.bannerTitle;
+    document.getElementById("card-heading").title = details.bannerTitle;
+    document.title = `${details.bannerTitle} | Interactive prototype`;
     document.getElementById("display-name").textContent = details.name;
     document.getElementById("display-birthdate").textContent = formatter.format(new Date(`${details.birthdate}T00:00:00Z`));
+    document.getElementById("display-profile-number").textContent = details.profileNumber;
+    document.getElementById("display-expiry").textContent = formatter.format(new Date(`${details.expiry}T00:00:00Z`));
     const refreshed = new Date(`${details.refreshed}:00Z`);
     document.getElementById("display-refreshed").dateTime = details.refreshed;
     document.getElementById("display-refreshed-date").textContent = formatter.format(refreshed);
@@ -161,8 +182,10 @@
       field.input.setCustomValidity("");
     }
     birthdateInput.value = details.birthdate;
+    expiryInput.value = details.expiry;
     refreshedInput.value = details.refreshed;
     birthdateInput.setCustomValidity("");
+    expiryInput.setCustomValidity("");
     refreshedInput.setCustomValidity("");
     rememberInput.checked = remembered;
     resetImageEditor();
@@ -341,8 +364,11 @@
       const restored = { ...defaults, ...parsed };
       if (!validateDetails(restored)) throw new Error("Saved card details are invalid.");
       details = {
+        bannerTitle: restored.bannerTitle.trim(),
         name: restored.name.trim(),
         birthdate: restored.birthdate,
+        profileNumber: restored.profileNumber.trim(),
+        expiry: restored.expiry,
         refreshed: restored.refreshed,
         class: restored.class.trim(),
         conditions: restored.conditions.trim(),
@@ -378,7 +404,7 @@
       dialog.close();
     }
   });
-  for (const input of [...textFields.map((field) => field.input), birthdateInput, refreshedInput]) {
+  for (const input of [...textFields.map((field) => field.input), birthdateInput, expiryInput, refreshedInput]) {
     input.addEventListener("input", () => input.setCustomValidity(""));
   }
 
@@ -393,8 +419,11 @@
       return;
     }
     const updated = {
+      bannerTitle: bannerTitleInput.value.trim(),
       name: nameInput.value.trim(),
       birthdate: birthdateInput.value,
+      profileNumber: profileNumberInput.value.trim(),
+      expiry: expiryInput.value,
       refreshed: refreshedInput.value,
       class: classInput.value.trim(),
       conditions: conditionsInput.value.trim(),
@@ -412,6 +441,11 @@
     if (!validRefreshed(updated.refreshed)) {
       refreshedInput.setCustomValidity("Enter a real date and time from 1 January 1900 onwards.");
       refreshedInput.reportValidity();
+      return;
+    }
+    if (!validCalendarDate(updated.expiry, "9999-12-31")) {
+      expiryInput.setCustomValidity("Enter a real expiry date between 1 January 1900 and 31 December 9999.");
+      expiryInput.reportValidity();
       return;
     }
     if (!validateDetails(updated)) {
@@ -492,11 +526,24 @@
     return { x: x * Math.cos(angle) + y * Math.sin(angle), y: y * Math.cos(angle) - x * Math.sin(angle) };
   }
 
+  function showMotionStatus(message) {
+    motionStatus.textContent = message;
+    motionNotice.hidden = false;
+  }
+
+  document.getElementById("dismiss-motion-notice").addEventListener("click", () => {
+    motionNotice.hidden = true;
+  });
+
+  function sensorApi(type) {
+    return type === "devicemotion" ? window.DeviceMotionEvent : window.DeviceOrientationEvent;
+  }
+
   function acknowledgeSensor() {
     if (sensorReceived) return;
     sensorReceived = true;
     window.clearTimeout(sensorTimeout);
-    motionStatus.textContent = "Motion is on. Tilt your phone to shift the light.";
+    showMotionStatus(`Motion is on (${sensorType === "devicemotion" ? "accelerometer" : "orientation"}). Tilt your phone to shift the light.`);
   }
 
   function orientationChanged(event) {
@@ -511,7 +558,7 @@
 
   function accelerationChanged(event) {
     const gravity = event.accelerationIncludingGravity;
-    if (document.hidden || reducedMotion.matches || !gravity || !Number.isFinite(gravity.x) || !Number.isFinite(gravity.y)) return;
+    if (document.hidden || reducedMotion.matches || !gravity || ![gravity.x, gravity.y, gravity.z].every(Number.isFinite) || Math.hypot(gravity.x, gravity.y, gravity.z) < 0.5) return;
     acknowledgeSensor();
     if (!baseline) baseline = { x: gravity.x, y: gravity.y };
     const position = sensorCoordinates((gravity.x - baseline.x) / 5, (gravity.y - baseline.y) / 5);
@@ -524,72 +571,107 @@
     window.removeEventListener("devicemotion", accelerationChanged);
     window.clearTimeout(sensorTimeout);
     sensorType = null;
+    retrySensorType = null;
+    pendingSensor = null;
     baseline = null;
     sensorReceived = false;
     motionButton.setAttribute("aria-pressed", "false");
     motionLabel.textContent = "Enable motion";
-    motionStatus.textContent = message;
+    motionRetry.hidden = true;
+    showMotionStatus(message);
     resetLight();
   }
 
-  function startSensor(type) {
+  function offerSensorRetry(type, message) {
+    stopSensors(message);
+    retrySensorType = type;
+    const label = type === "devicemotion" ? "Try accelerometer" : "Try orientation";
+    motionLabel.textContent = label;
+    motionRetry.textContent = label;
+    motionRetry.hidden = false;
+  }
+
+  function startSensor(type, alternative = null) {
     sensorType = type;
+    pendingSensor = null;
     baseline = null;
     sensorReceived = false;
     window.addEventListener(type, type === "deviceorientation" ? orientationChanged : accelerationChanged);
     motionButton.setAttribute("aria-pressed", "true");
     motionLabel.textContent = "Disable motion";
-    motionStatus.textContent = "Waiting for your phone's motion sensor...";
+    motionRetry.hidden = true;
+    showMotionStatus(`Waiting for your phone's ${type === "devicemotion" ? "accelerometer" : "orientation sensor"}...`);
     sensorTimeout = window.setTimeout(() => {
-      if (type === "deviceorientation" && typeof window.DeviceOrientationEvent?.requestPermission !== "function" && "DeviceMotionEvent" in window && typeof window.DeviceMotionEvent?.requestPermission !== "function") {
-        window.removeEventListener("deviceorientation", orientationChanged);
-        startSensor("devicemotion");
+      if (alternative && typeof sensorApi(alternative)?.requestPermission !== "function") {
+        window.removeEventListener(type, type === "deviceorientation" ? orientationChanged : accelerationChanged);
+        startSensor(alternative);
+      } else if (alternative) {
+        offerSensorRetry(alternative, "No motion data received. Try the other sensor below; Safari may ask for permission again.");
       } else {
-        stopSensors("No motion data received. Try your phone's browser, or drag the card instead.");
+        stopSensors("No motion data received. In Safari, check this website's Motion & Orientation permission, then reload and tap the phone icon. You can also drag the card.");
       }
-    }, 3500);
+    }, 5000);
   }
 
-  motionButton.addEventListener("click", async () => {
+  async function enableMotion() {
     if (requesting) return;
     if (sensorType) {
       stopSensors("Motion is off. Move your pointer or drag the card instead.");
       return;
     }
     if (reducedMotion.matches) {
-      motionStatus.textContent = "Animation is paused because Reduce Motion is enabled in your device settings.";
+      showMotionStatus("Animation is paused because Reduce Motion is enabled in your device settings.");
       return;
     }
     if (!window.isSecureContext) {
-      motionStatus.textContent = "Phone motion requires HTTPS. Open the GitHub Pages URL, or drag the card instead.";
+      showMotionStatus("Phone motion requires HTTPS. Open the GitHub Pages URL, or drag the card instead.");
       return;
     }
-    const type = "DeviceOrientationEvent" in window ? "deviceorientation" : "DeviceMotionEvent" in window ? "devicemotion" : null;
+    const types = ["devicemotion", "deviceorientation"].filter((type) => sensorApi(type));
+    const type = retrySensorType ?? types[0];
+    const alternative = retrySensorType ? null : types.find((candidate) => candidate !== type) ?? null;
+    retrySensorType = null;
     if (!type) {
-      motionStatus.textContent = "Motion sensors aren't supported here. Move your pointer or drag the card instead.";
+      showMotionStatus("Motion sensors aren't supported here. Open this page directly in Safari, or drag the card instead.");
       return;
     }
-    const api = type === "deviceorientation" ? window.DeviceOrientationEvent : window.DeviceMotionEvent;
+    const api = sensorApi(type);
     const version = ++requestVersion;
     requesting = true;
     motionButton.disabled = true;
+    motionRetry.disabled = true;
+    showMotionStatus("Allow Motion & Orientation when Safari asks, then tilt your phone.");
     try {
       // iOS requires this call directly inside a user-initiated event.
       const permission = typeof api.requestPermission === "function" ? await api.requestPermission() : "granted";
-      if (version !== requestVersion || reducedMotion.matches || document.hidden) return;
+      if (version !== requestVersion || reducedMotion.matches) return;
       if (permission !== "granted") {
-        stopSensors("Motion permission wasn't granted. You can still drag the card to shift the light.");
+        const message = "Motion permission wasn't granted. You can still drag the card to shift the light.";
+        if (alternative) offerSensorRetry(alternative, message);
+        else stopSensors(message);
         return;
       }
-      startSensor(type);
+      if (document.hidden) {
+        pendingSensor = { type, alternative };
+        showMotionStatus("Motion permission granted. Return to this page to start the sensor.");
+      } else {
+        startSensor(type, alternative);
+      }
     } catch (error) {
       console.warn("Could not enable phone motion.", error);
-      if (version === requestVersion) stopSensors("Motion couldn't be enabled. Check browser permissions, or drag the card instead.");
+      if (version === requestVersion) {
+        const message = "Motion couldn't be enabled. Check browser permissions, or drag the card instead.";
+        if (alternative) offerSensorRetry(alternative, message);
+        else stopSensors(message);
+      }
     } finally {
       requesting = false;
       motionButton.disabled = false;
+      motionRetry.disabled = false;
     }
-  });
+  }
+  motionButton.addEventListener("click", enableMotion);
+  motionRetry.addEventListener("click", enableMotion);
 
   function pointerMoved(event) {
     if (sensorType || (event.pointerType !== "mouse" && event.buttons === 0)) return;
@@ -615,11 +697,16 @@
   window.addEventListener("orientationchange", screenChanged);
   reducedMotion.addEventListener("change", () => {
     if (reducedMotion.matches) stopSensors("Animation is paused because Reduce Motion is enabled in your device settings.");
-    else motionStatus.textContent = "Move your pointer or drag the card to shift the light.";
+    else showMotionStatus("Move your pointer or drag the card to shift the light.");
   });
   document.addEventListener("visibilitychange", () => {
-    if (document.hidden) stopSensors("Motion is off after leaving the page. Tap Enable motion to resume.");
+    // Safari permission UI can briefly hide the page; do not cancel its request.
+    if (document.hidden && !requesting && !pendingSensor) {
+      stopSensors("Motion is off after leaving the page. Tap Enable motion to resume.");
+    } else if (!document.hidden && pendingSensor) {
+      startSensor(pendingSensor.type, pendingSensor.alternative);
+    }
   });
   window.addEventListener("pagehide", () => stopSensors("Motion is off. Tap Enable motion to resume."));
-  if (reducedMotion.matches) motionStatus.textContent = "Animation is paused because Reduce Motion is enabled in your device settings.";
+  if (reducedMotion.matches) showMotionStatus("Animation is paused because Reduce Motion is enabled in your device settings.");
 })();
